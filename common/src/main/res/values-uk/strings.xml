@@ -883,4 +883,6 @@
     <string name="settings_write_settings_allow">Дозволити доступ</string>
     <string name="settings_wifi_direct_scan_pause">Призупинити пошук Wi-Fi автомобілем під час CarPlay · потрібен ADB</string>
     <string name="settings_wifi_direct_scan_pause_description">У режимі Wi-Fi Direct автомобіль шукає мережі Wi-Fi кожні кілька секунд, і кожен пошук перериває музику й відео. Коли параметр увімкнено, DiPlay призупиняє пошук, поки працює CarPlay. Тоді автомобіль і сам не підключається до відомої мережі, наприклад до точки доступу телефона, доки CarPlay не завершиться; підключитися можна вручну в налаштуваннях Wi-Fi автомобіля. Вимкніть, щоб автомобіль підключався сам. Застосовується під час наступного підключення.</string>
+    <string name="usb_carplay_unavailable_on_this_head_unit">Дротовий CarPlay не працює на цьому головному пристрої: його USB-порт не може працювати як хост для iPhone. Скористайтеся Wi-Fi Direct.</string>
+    <string name="wireless_link_unavailable_on_this_head_unit">Недоступно на цьому головному пристрої.</string>
 </resources>

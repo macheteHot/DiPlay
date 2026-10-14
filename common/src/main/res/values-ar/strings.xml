@@ -920,4 +920,6 @@
     <string name="settings_write_settings_allow">السماح بالإذن</string>
     <string name="settings_wifi_direct_scan_pause">إيقاف بحث السيارة عن Wi-Fi أثناء CarPlay · يتطلب ADB</string>
     <string name="settings_wifi_direct_scan_pause_description">مع Wi-Fi Direct تبحث السيارة عن شبكات Wi-Fi كل بضع ثوانٍ، وكل بحث يجعل الموسيقى والفيديو يتقطعان. عند تشغيل هذا الخيار يوقف DiPlay البحث أثناء تشغيل CarPlay. عندها لا تتصل السيارة تلقائيًا بشبكة معروفة، مثل نقطة اتصال هاتفك، حتى ينتهي CarPlay؛ ويمكنك الاتصال بها يدويًا من إعدادات Wi-Fi في السيارة. أوقفه لتتصل السيارة تلقائيًا. يُطبَّق عند الاتصال التالي.</string>
+    <string name="usb_carplay_unavailable_on_this_head_unit">لا يعمل CarPlay السلكي على هذه الوحدة: منفذ USB فيها لا يمكنه استضافة iPhone. استخدم Wi-Fi Direct.</string>
+    <string name="wireless_link_unavailable_on_this_head_unit">غير متاح على هذه الوحدة.</string>
 </resources>

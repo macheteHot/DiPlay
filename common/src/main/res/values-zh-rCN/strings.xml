@@ -931,4 +931,6 @@
     <string name="settings_write_settings_allow">允许权限</string>
     <string name="settings_wifi_direct_scan_pause">CarPlay 期间暂停车机 Wi-Fi 搜索 · 需要 ADB</string>
     <string name="settings_wifi_direct_scan_pause_description">Wi-Fi 直连时，车机每隔几秒搜索一次 Wi-Fi 网络，每次搜索都会让音乐和画面卡顿。开启后，CarPlay 运行期间 DiPlay 会暂停这个搜索。这段时间车机也不会自动连接已知网络（例如手机热点），可以在车机 Wi-Fi 设置里手动连接；CarPlay 结束后恢复。关闭后车机可以自动连接。下次连接时生效。</string>
+    <string name="usb_carplay_unavailable_on_this_head_unit">这台车机不支持有线 CarPlay：它的 USB 口不能作为主机识别 iPhone。请使用 Wi-Fi Direct。</string>
+    <string name="wireless_link_unavailable_on_this_head_unit">此车机不支持该方式。</string>
 </resources>

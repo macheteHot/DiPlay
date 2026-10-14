@@ -74,6 +74,7 @@ import com.shilapi.xcertplay.media.AmbientMusicSettings
 import com.shilapi.xcertplay.media.MtkDecoderTuning
 import com.shilapi.xcertplay.network.CarHotspotSettings
 import com.shilapi.xcertplay.network.CarHotspotTethering
+import com.shilapi.xcertplay.network.GeelyWirelessLinkPolicy
 import com.shilapi.xcertplay.network.WifiP2pChannels
 import com.shilapi.xcertplay.orchestration.ManualHotspotSecurity
 import com.shilapi.xcertplay.orchestration.MfiTarget
@@ -909,7 +910,8 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
 
     private fun home(content: LinearLayout) {
         val compact = isCompactLayout
-        fun homeButton(title: String, primary: Boolean, click: () -> Unit) = button(title, primary, click)
+        fun homeButton(title: String, primary: Boolean, enabled: Boolean = true, click: () -> Unit) =
+            button(title, primary, enabled, click)
         val wide = resources.configuration.screenWidthDp >= 850
         val body = column()
         val left = column()
@@ -974,8 +976,17 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             gravity = Gravity.CENTER
             addView(logo, LinearLayout.LayoutParams(dp(96), dp(96)))
         }
-        right.addView(homeButton(getString(R.string.connect_with_usb), false) { connect(false) }, matchButton(height = if (compact) 54 else 68))
-        if (!compact) right.addView(label(getString(R.string.plug_your_iphone_into_a_usb_data_port_allow_carplay_when_y), 14, MUTED).apply { gravity = Gravity.CENTER; setPadding(dp(8), dp(10), dp(8), dp(24)) })
+        right.addView(homeButton(
+            getString(R.string.connect_with_usb), false,
+            enabled = GeelyWirelessLinkPolicy.wiredCarPlayAvailable(),
+        ) { connect(false) }, matchButton(height = if (compact) 54 else 68))
+        if (!compact) right.addView(label(
+            getString(
+                if (GeelyWirelessLinkPolicy.wiredCarPlayAvailable()) R.string.plug_your_iphone_into_a_usb_data_port_allow_carplay_when_y
+                else R.string.usb_carplay_unavailable_on_this_head_unit,
+            ),
+            14, MUTED,
+        ).apply { gravity = Gravity.CENTER; setPadding(dp(8), dp(10), dp(8), dp(24)) })
         else right.addView(space(16))
         right.addView(homeButton(getString(R.string.settings), false) { page = "settings"; render() }, matchButton(height = if (compact) 54 else 68))
         if (!compact) right.addView(label(getString(R.string.make_diplay_feel_right_for_your_car), 14, MUTED).apply { gravity = Gravity.CENTER; setPadding(0, dp(10), 0, dp(24)) })
@@ -1722,7 +1733,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         filteredSection(content, SettingsSection.CONNECTION_SETUP,
             getString(R.string.connection_setup), R.drawable.ic_dp_connection) { card ->
             card.addView(label(getString(R.string.choose_how_to_connect_follow_the_setup_steps_and_save_your), 16, MUTED))
-            card.addView(button(getString(R.string.open_connection_setup), false, ::openConnectionSetupFromSettings), matchButton(12, 60))
+            card.addView(button(getString(R.string.open_connection_setup), false, click = ::openConnectionSetupFromSettings), matchButton(12, 60))
             card.addView(space(12))
             // Also here, not only in the CarPlay menu: with the CH341 removed CarPlay cannot connect,
             // so that menu could not be reached to switch back (#696).
@@ -3264,8 +3275,14 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             card.addView(button(getString(R.string.connect_phone), true) { connect(true) }, matchButton(12, 60))
         }
         section(content, getString(R.string.prefer_a_cable)) { card ->
-            card.addView(label(getString(R.string.use_a_usb_data_cable_and_the_car_s_usb_data_port_unlock_yo), 16, MUTED))
-            card.addView(button(getString(R.string.connect_with_usb), false) { connect(false) }, matchButton(12, 60))
+            card.addView(label(getString(
+                if (GeelyWirelessLinkPolicy.wiredCarPlayAvailable()) R.string.use_a_usb_data_cable_and_the_car_s_usb_data_port_unlock_yo
+                else R.string.usb_carplay_unavailable_on_this_head_unit,
+            ), 16, MUTED))
+            card.addView(button(
+                getString(R.string.connect_with_usb), false,
+                enabled = GeelyWirelessLinkPolicy.wiredCarPlayAvailable(),
+            ) { connect(false) }, matchButton(12, 60))
         }
     }
 
@@ -3281,12 +3298,14 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         val wide = resources.configuration.screenWidthDp >= 850
         val choices = if (wide) row().apply { gravity = Gravity.TOP } else column()
         parent.addView(choices)
+        val disabled = GeelyWirelessLinkPolicy.disabledModes()
         modes.forEachIndexed { index, candidate ->
             val option = column()
             choices.addView(option, if (wide) LinearLayout.LayoutParams(0, -2, 1f).apply {
                 if (index > 0) marginStart = dp(16)
             } else LinearLayout.LayoutParams(-1, -2))
-            option.addView(button("${if (mode == candidate) "✓  " else ""}${titles[index]}", mode == candidate) {
+            val unavailable = candidate in disabled
+            option.addView(button("${if (mode == candidate) "✓  " else ""}${titles[index]}", mode == candidate, enabled = !unavailable) {
                 if (candidate == WirelessHotspotMode.MANUAL) {
                     pendingCarHotspotSetup = true
                     render()
@@ -3301,7 +3320,10 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                     applyWirelessLink(candidate)
                 }
             }, matchButton(12, 60))
-            option.addView(label(descriptions[index], 15, MUTED).apply { setPadding(0, dp(6), 0, dp(12)) })
+            option.addView(label(
+                if (unavailable) getString(R.string.wireless_link_unavailable_on_this_head_unit) else descriptions[index],
+                15, MUTED,
+            ).apply { setPadding(0, dp(6), 0, dp(12)) })
         }
         if (mode == WirelessHotspotMode.MANUAL) {
             parent.addView(label(getString(R.string.hotspot_setup), 22, TEXT, true))
@@ -3319,7 +3341,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             parent.addView(label(if (detailsMissing) getString(R.string.finish_setup_save_your_hotspot_details_to_use_this_mode) else if (carHotspotOff()) getString(R.string.hotspot_details_off) else getString(R.string.hotspot_details_saved), 15, if (carHotspotOff()) WARNING else MUTED).apply { setPadding(0, dp(12), 0, 0) })
             val join = hotspotJoinControls ?: HotspotJoinControls(this,
                 { CarPlayBackgroundSession.hasSession() }, beforeAction = { startupHotspotCancelled = true },
-                labelFactory = { label(it, 15, MUTED) }, buttonFactory = { title, click -> button(title, false, click) })
+                labelFactory = { label(it, 15, MUTED) }, buttonFactory = { title, click -> button(title, false, click = click) })
                 .also { hotspotJoinControls = it }
             parent.addView(join.build())
         } else if (mode == WirelessHotspotMode.EXISTING_WIFI) {
@@ -6089,7 +6111,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
     }
     private fun headerIconSize(compact: Boolean) = dp(if (compact) 20 else 24)
 
-    private fun headerButton(title: String, icon: Int, compact: Boolean, click: () -> Unit) = button(title, false, click).apply {
+    private fun headerButton(title: String, icon: Int, compact: Boolean, click: () -> Unit) = button(title, false, click = click).apply {
         alignVisibleGlyphs = false
         if (compact) textSize = 16f
         includeFontPadding = false
@@ -6130,17 +6152,28 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         (layoutCornerRadius() / resources.displayMetrics.density).roundToInt(),
     )
 
-    private fun button(title: String, primary: Boolean, click: () -> Unit) = SettingButton(this, MUTED, ACCENT).apply {
-        isAllCaps = false; textSize = 18f; setTextColor(if (primary) ON_ACCENT else TEXT)
+    /**
+     * A setting row button. [enabled] false keeps the row visible but mutes it and drops the tap,
+     * for a link this head unit cannot run.
+     */
+    private fun button(title: String, primary: Boolean, enabled: Boolean = true, click: () -> Unit) = SettingButton(this, MUTED, ACCENT).apply {
+        isAllCaps = false; textSize = 18f
+        setTextColor(if (!enabled) MUTED else if (primary) ON_ACCENT else TEXT)
         typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-        background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(RIPPLE), buttonShape(if (primary) ACCENT else BUTTON, if (primary) ACCENT else BORDER), null)
+        isEnabled = enabled
+        background = if (enabled) {
+            android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(RIPPLE), buttonShape(if (primary) ACCENT else BUTTON, if (primary) ACCENT else BORDER), null)
+        } else {
+            buttonShape(BUTTON, BORDER)
+        }
         setPadding(dp(16), 0, dp(16), 0); minHeight = dp(56); stateListAnimator = null
         compoundDrawablePadding = dp(12)
-        foreground = buttonFocusRing()
+        foreground = if (enabled) buttonFocusRing() else null
         text = title
         searchIndexSink?.add(title.substringBefore(VALUE_SEPARATOR))
-        setOnClickListener { click() }
+        if (enabled) setOnClickListener { click() }
         doOnLayout {
+            if (!enabled) return@doOnLayout
             val shape = buttonShape(if (primary) ACCENT else BUTTON, if (primary) ACCENT else BORDER, height)
             background = android.graphics.drawable.RippleDrawable(ColorStateList.valueOf(RIPPLE), shape, null)
             foreground = focusRing((shape.cornerRadius / resources.displayMetrics.density).roundToInt())
@@ -6167,7 +6200,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
 
     // For an action whose label happens to contain the separator, such as "Turn on … · ADB".
     private fun actionButton(title: String, primary: Boolean, click: () -> Unit) =
-        button(title, primary, click).apply { action = true; text = title }
+        button(title, primary, click = click).apply { action = true; text = title }
 
     /**
      * Text in the "Title · Value" form opens a choice, so it reads as a setting row:

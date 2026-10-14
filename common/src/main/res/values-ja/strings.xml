@@ -973,4 +973,6 @@
     <string name="settings_write_settings_allow">アクセスを許可</string>
     <string name="settings_wifi_direct_scan_pause">CarPlay中は車のWi-Fi検索を一時停止 · ADBが必要</string>
     <string name="settings_wifi_direct_scan_pause_description">Wi-Fi Directでは車が数秒ごとにWi-Fiネットワークを検索し、そのたびに音楽と映像が途切れます。オンにすると、CarPlayの実行中はDiPlayがこの検索を止めます。その間、車はスマートフォンのテザリングなど既知のネットワークにも自動では接続しません（車のWi-Fi設定から手動では接続できます）。自動で接続させたい場合はオフにしてください。次の接続から適用されます。</string>
+    <string name="usb_carplay_unavailable_on_this_head_unit">この車載機では有線CarPlayは使用できません。USBポートがiPhoneをホストとして認識できないためです。Wi-Fi Directをご利用ください。</string>
+    <string name="wireless_link_unavailable_on_this_head_unit">この車載機では利用できません。</string>
 </resources>

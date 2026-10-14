@@ -372,9 +372,9 @@ object AirPlayPersistence {
     fun loadWirelessHotspotMode(context: Context): WirelessHotspotMode {
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val stored = prefs.getString(KEY_WIRELESS_HOTSPOT_MODE, null)
-        val mode = WirelessHotspotMode.entries.firstOrNull { it.name == stored }
-            ?: WirelessHotspotMode.MANUAL
-        val supported = if (mode == WirelessHotspotMode.LOCAL_ONLY_HOTSPOT) WirelessHotspotMode.MANUAL else mode
+        // The Geely/Lynk unit cannot run its built-in hotspot or a wired link, so an old MANUAL
+        // selection migrates to Wi-Fi Direct instead of failing on every wireless start.
+        val supported = com.shilapi.xcertplay.network.GeelyWirelessLinkPolicy.resolve(stored)
         if (stored != supported.name) saveWirelessHotspotMode(context, supported)
         return supported
     }

@@ -9,6 +9,9 @@
 | [`diminteraction/`](diminteraction/README.md) | `com.autolink.diminteraction`（DIMInteraction.apk） | 仪表/HUD 导航与投影通道。 |
 | [`oneos-dimservice/`](oneos-dimservice/README.md) | `com.geely.dimservice`（OneOS-DIMService.apk） | 谁开关仪表导航区。 |
 | `system/` | `/system`、`/system_ext`、`/product`、`/vendor` 全量（117 个 APK + framework JAR + permissions + getprop） | 整机系统逆向，见 [`../headunit/`](../headunit/README.md)。 |
+| `svengmode-rea/` | 上述拉取产物的 REA 静态分析输出 | 复现 `../headunit/` 的结论时按需重新生成。 |
+
+本机拉取产物已清理，目录里只剩下本文件与各子目录索引：表内每一项按标注的源路径重新 `adb pull` 即可复现。
 
 相关结论文档：
 

@@ -4,6 +4,10 @@
 做静态逆向的结论集合。方法：**REA**（`rea-agents@6.4.0` + 审计版 `jadx-headless-mcp 0.7.1`），
 辅以 `dexdump` / `aapt2` / `getprop`（凡普通工具观测均在文内标注）。
 
+> 各章标注的 `extracted/*` 原始产物与根目录 `oneosapi-all.bin` 是只在本机的拉取结果，早已清理、不入库；
+> 需要复现时按相同路径重新从车机拉取（来源见 `carDocs/extracted/README.md`）。结论文档与
+> `evidence/` 的静态分析证据保留，文内引用按当时的路径书写。
+
 ## 文档
 
 | 文档 | 内容 |

@@ -22,6 +22,9 @@ object CarHotspotStatus {
      */
     fun isEnabled(context: Context): Boolean? {
         val app = context.applicationContext
+        // The head unit's own hotspot is a vendor p2p0 local hotspot on the FX11, which the
+        // standard SoftAP state does not report; the vendor API answers first when it can.
+        GeelyCarHotspot.read(app)?.let { return it }
         val wifi = app.getSystemService(WifiManager::class.java)
         return read(
             state = { wifi?.let { WifiManager::class.java.getMethod("getWifiApState").invoke(it) as? Int } },

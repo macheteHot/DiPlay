@@ -297,6 +297,7 @@ class CarPlayController(
     private var permissionCloseable: Closeable? = null
     private var attachCloseable: Closeable? = null
     private var ch341PermissionCloseable: Closeable? = null
+    private var lastCh341Listing: String? = null
     private var vpnLatch = CountDownLatch(1)
     private val teardownComplete = CountDownLatch(1)
 
@@ -913,11 +914,23 @@ class CarPlayController(
         if (closed || phase != Phase.MFI) return
         val device = host.discover().firstOrNull()
         if (device == null) {
+            reportCh341Missing(host)
             waitForMfi()
         } else {
+            debugLog("mfi CH341 listed ${Ch341UsbHost.describe(device)}")
             availabilityPollGeneration.incrementAndGet()
             requestCh341Permission(device)
         }
+    }
+
+    // "MFi coprocessor not present" said only that no configured CH341 was listed. What Android does list shows
+    // whether the adapter left the bus or came back under another identity after a session (#792). Each poll
+    // reports only a change.
+    private fun reportCh341Missing(host: Ch341UsbHost) {
+        val listed = runCatching { host.listedDevices().joinToString(", ") }.getOrElse { "unavailable" }
+        if (listed == lastCh341Listing) return
+        lastCh341Listing = listed
+        debugLog("mfi CH341 not listed by Android; USB devices=[$listed]")
     }
 
     private fun openLinuxMfi() {
@@ -2312,11 +2325,13 @@ class CarPlayController(
                     "${result.diagnostic}. Open the car hotspot settings and connect again.")
             }
         }
-        if (hotspotMode == WirelessHotspotMode.MANUAL &&
-            com.shilapi.xcertplay.network.CarHotspotStatus.isEnabled(appContext) == false
-        ) {
-            throw WirelessStartupException(WirelessStartupFailure.HOTSPOT_CONFIGURATION,
-                "The car hotspot is off. Turn it on in the car settings and connect again.")
+        if (hotspotMode == WirelessHotspotMode.MANUAL) {
+            val state = com.shilapi.xcertplay.network.CarHotspotStatus.isEnabled(appContext)
+            if (com.shilapi.xcertplay.network.CarHotspotSettings.reportedOff(appContext, state)) {
+                throw WirelessStartupException(WirelessStartupFailure.HOTSPOT_CONFIGURATION,
+                    "The car hotspot is off. Turn it on in the car settings and connect again.")
+            }
+            if (state == false) debugLog("car hotspot: Android reports it off; connecting anyway, as the driver chose")
         }
         val manager: WirelessHotspotManager = when (hotspotMode) {
             WirelessHotspotMode.WIFI_P2P -> WifiP2pGroupManager(appContext, ::debugLog,

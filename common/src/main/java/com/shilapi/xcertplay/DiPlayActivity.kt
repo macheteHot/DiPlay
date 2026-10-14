@@ -2793,7 +2793,7 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
     // An opted-in connection prepares the hotspot in the controller instead of stopping at this reminder.
     private fun carHotspotOff(): Boolean =
         AirPlayPersistence.loadWirelessHotspotMode(this) == WirelessHotspotMode.MANUAL &&
-            com.shilapi.xcertplay.network.CarHotspotStatus.isEnabled(this) == false &&
+            CarHotspotSettings.reportedOff(this, com.shilapi.xcertplay.network.CarHotspotStatus.isEnabled(this)) &&
             !(CarHotspotSettings.enabled(this) && CarHotspotTethering.permitted(this))
 
     /**
@@ -2996,7 +2996,12 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         appDialogBuilder().setTitle(getString(R.string.car_hotspot_is_off))
             .setMessage(getString(R.string.msg_car_hotspot_connect, AirPlayPersistence.loadManualHotspotSsid(this)))
             .setPositiveButton(getString(R.string.open_car_settings)) { _, _ -> openCarWifiSettings() }
-            .setNeutralButton(getString(R.string.connect)) { _, _ -> connect(true) }
+            .setNeutralButton(getString(R.string.connect)) { _, _ ->
+                // The driver sees the hotspot on: trust that over Android's report, or this dialog would
+                // come back on every tap (#604).
+                CarHotspotSettings.setOffReportIgnored(this, true)
+                connect(true)
+            }
             .setNegativeButton(getString(R.string.cancel), null).show()
     }
 
@@ -3925,8 +3930,12 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             (zoomAvailable && WheelZoomSettings.enabled(this))
         if (WheelZoomSettings.siriKey(this) || vehicleKeysOn) wheelKeyServiceControls(card)
         siriKeyControls(card)
-        toggle(card, getString(R.string.wheel_siri_long_press_only), getString(R.string.wheel_siri_long_press_only_description),
-            WheelZoomSettings.siriLongPressOnly(this)) { WheelZoomSettings.setSiriLongPressOnly(this, it) }
+        // It acts on BYD's short voice keys (327, 304) only, which other head units never send. Once on it
+        // stays reachable, like the controls below, in case the package check misses the car.
+        if (byd || WheelZoomSettings.siriLongPressOnly(this)) {
+            toggle(card, getString(R.string.wheel_siri_long_press_only), getString(R.string.wheel_siri_long_press_only_description),
+                WheelZoomSettings.siriLongPressOnly(this)) { WheelZoomSettings.setSiriLongPressOnly(this, it) }
+        }
         // Any head unit: a paired keyboard, remote or rotary controller works alongside touch.
         toggle(card, getString(R.string.settings_external_controller), getString(R.string.settings_external_controller_description),
             AirPlayPersistence.loadExternalController(this)) { AirPlayPersistence.saveExternalController(this, it) }

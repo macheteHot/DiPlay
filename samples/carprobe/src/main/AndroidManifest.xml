@@ -5,6 +5,9 @@
          try to reach the cluster navi interaction directly (route A). -->
     <uses-permission android:name="geely.oneos.permission.SERVICE" />
 
+    <!-- Visualizer(0) captures the device output mix, so it needs the record-audio permission. -->
+    <uses-permission android:name="android.permission.RECORD_AUDIO" />
+
     <!-- The hub and the stock map are bound by explicit component, so API 30+
          package visibility needs them declared (or QUERY_ALL_PACKAGES). -->
     <queries>
@@ -27,5 +30,13 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <!-- The vendor HUDInteractionImpl registers a car-signal listener whose callback crashes
+             on this build (Float cast to Integer). It runs in its own process so a crash there
+             cannot take the main probe down. -->
+        <activity
+            android:name=".HudImplProbeActivity"
+            android:exported="true"
+            android:process=":hudimpl" />
     </application>
 </manifest>

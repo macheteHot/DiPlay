@@ -170,6 +170,48 @@ public final class ProbeActivity extends Activity {
         if (intent.getBooleanExtra("hud_cycle", false)) {
             handler.postDelayed(this::hudCycleSequence, 3000);
         }
+        if (intent.getBooleanExtra("hud_api", false)) {
+            handler.postDelayed(() -> HudApi.readAll(this), 3000);
+        }
+        if (intent.getBooleanExtra("hud_impl", false)) {
+            handler.postDelayed(() -> startActivity(new Intent(this, HudImplProbeActivity.class)), 3000);
+        }
+        if (intent.getBooleanExtra("amb_li", false)) {
+            handler.postDelayed(() -> AmbientApi.readAll(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_music", false)) {
+            handler.postDelayed(() -> AmbientApi.enableOemMusicShow(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_restore", false)) {
+            handler.postDelayed(() -> AmbientApi.restoreOemAmbient(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_probe", false)) {
+            handler.postDelayed(() -> AmbientApi.runControlProbe(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_marquee", false)) {
+            handler.postDelayed(() -> AmbientApi.startMarquee(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_steady", false)) {
+            handler.postDelayed(() -> AmbientApi.steadyColor(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_wheel", false)) {
+            handler.postDelayed(() -> AmbientApi.startColorWheel(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_spectrum", false)) {
+            handler.postDelayed(() -> AmbientApi.readSpectrum(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_visualizer", false)) {
+            handler.postDelayed(() -> AmbientApi.readLocalVisualizer(this), 3000);
+        }
+        if (intent.getBooleanExtra("amb_force_music", false)) {
+            handler.postDelayed(() -> AmbientApi.forceMusicShow(this), 3000);
+        }
+        if (intent.getBooleanExtra("wifi_probe", false)) {
+            handler.postDelayed(() -> WifiApi.readAll(this), 3000);
+        }
+        if (intent.getBooleanExtra("wifi_bringup", false)) {
+            handler.postDelayed(() -> WifiApi.bringUp(this), 3000);
+        }
     }
 
     @Override
@@ -269,6 +311,21 @@ public final class ProbeActivity extends Activity {
 
         LinearLayout tools = addGroup(colC, "工具 / 连接", COLOR_TOOLS);
         addButton(tools, "HUD 只读全检", COLOR_TOOLS, this::readOnlyHudCheck);
+        addButton(tools, "HUD adaptapi", COLOR_TOOLS, () -> HudApi.readAll(this));
+        addButton(tools, "HUD impl(独立进程)", COLOR_TOOLS,
+                () -> startActivity(new Intent(this, HudImplProbeActivity.class)));
+        addButton(tools, "氛围灯 只读", COLOR_TOOLS, () -> AmbientApi.readAll(this));
+        addButton(tools, "原厂音乐律动", COLOR_TOOLS, () -> AmbientApi.enableOemMusicShow(this));
+        addButton(tools, "还原氛围灯", COLOR_TOOLS, () -> AmbientApi.restoreOemAmbient(this));
+        addButton(tools, "氛围灯 控制测试", COLOR_TOOLS, () -> AmbientApi.runControlProbe(this));
+        addButton(tools, "氛围灯 跑马灯", COLOR_TOOLS, () -> AmbientApi.startMarquee(this));
+        addButton(tools, "氛围灯 常亮单色", COLOR_TOOLS, () -> AmbientApi.steadyColor(this));
+        addButton(tools, "氛围灯 色轮", COLOR_TOOLS, () -> AmbientApi.startColorWheel(this));
+        addButton(tools, "音频频谱(车机)", COLOR_TOOLS, () -> AmbientApi.readSpectrum(this));
+        addButton(tools, "音频频谱(本地)", COLOR_TOOLS, () -> AmbientApi.readLocalVisualizer(this));
+        addButton(tools, "强制音乐秀(车机)", COLOR_TOOLS, () -> AmbientApi.forceMusicShow(this));
+        addButton(tools, "Wi-Fi/热点(原厂)", COLOR_TOOLS, () -> WifiApi.readAll(this));
+        addButton(tools, "开原厂热点(写)", COLOR_TOOLS, () -> WifiApi.bringUp(this));
         addButton(tools, "OneOS 连接", COLOR_TOOLS, () -> hub.bind(c -> ProbeLog.i("OneOS hub ready=" + c)));
         addButton(tools, "OneOS 断开", COLOR_TOOLS, () -> hub.unbind());
         addButton(tools, "HUD 调节…", COLOR_TOOLS, this::hudAdjustDialog);
@@ -445,6 +502,8 @@ public final class ProbeActivity extends Activity {
         dumpDisplays();
         DimProtocol.readHudState();
         DimProtocol.readProjectScreenStatus();
+        HudApi.readAll(this);
+        AmbientApi.readAll(this);
         if (!hub.isConnected()) {
             ProbeLog.i("OneOS hub not connected; re-binding and finishing the check when it is");
             hub.bind(connected -> {
@@ -666,7 +725,7 @@ public final class ProbeActivity extends Activity {
             switch (p[0]) {
                 case "help":
                     ProbeLog.i("commands: dim <0-3> | ar <0|1> | switchar <0|1> | guide | subscribe <0|1> "
-                            + "| inspect | cycle | naviserv [1] | service <type> | permservice <type> "
+                            + "| inspect | cycle | hudapi | hudimpl | ambli | ambmusic | ambrestore | ambprobe | ambmarquee | ambsteady | ambwheel | ambspectrum | ambvisualizer | ambforcemusic | wifi | wifibringup | naviserv [1] | service <type> | permservice <type> "
                             + "| simnavi | stopnavi | dimnavi <start|tick|stop> | dimproj <0|1> "
                             + "| navistart [naviType] | route [action] [lat] [lng] [name] "
                             + "| hold <turn> <dist> | unhold | binddim "
@@ -764,6 +823,48 @@ public final class ProbeActivity extends Activity {
                     break;
                 case "inspect":
                     withNavi(() -> NaviApi.inspect(navi()));
+                    break;
+                case "hudapi":
+                    HudApi.readAll(this);
+                    break;
+                case "hudimpl":
+                    startActivity(new Intent(this, HudImplProbeActivity.class));
+                    break;
+                case "ambli":
+                    AmbientApi.readAll(this);
+                    break;
+                case "ambmusic":
+                    AmbientApi.enableOemMusicShow(this);
+                    break;
+                case "ambrestore":
+                    AmbientApi.restoreOemAmbient(this);
+                    break;
+                case "ambprobe":
+                    AmbientApi.runControlProbe(this);
+                    break;
+                case "ambmarquee":
+                    AmbientApi.startMarquee(this);
+                    break;
+                case "ambsteady":
+                    AmbientApi.steadyColor(this);
+                    break;
+                case "ambwheel":
+                    AmbientApi.startColorWheel(this);
+                    break;
+                case "ambspectrum":
+                    AmbientApi.readSpectrum(this);
+                    break;
+                case "ambvisualizer":
+                    AmbientApi.readLocalVisualizer(this);
+                    break;
+                case "ambforcemusic":
+                    AmbientApi.forceMusicShow(this);
+                    break;
+                case "wifi":
+                    WifiApi.readAll(this);
+                    break;
+                case "wifibringup":
+                    WifiApi.bringUp(this);
                     break;
                 case "cycle":
                     hudCycleSequence();

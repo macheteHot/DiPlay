@@ -22,6 +22,8 @@
 | [`12-可调项总表.md`](12-可调项总表.md) | 除氛围灯外的可调项：DSP/EQ/声场/混音、HUD、车灯、51 个车辆功能管理器、设置页、工程模式 |
 | [`13-APK安装通道.md`](13-APK安装通道.md) | 不用 adb 的安装：系统安装器、商店 TaskService 静默安装协议、手机互联/OTA/PKI |
 | [`14-USB与有线CarPlay.md`](14-USB与有线CarPlay.md) | 本车 USB 是 accessory/AOA + vendor `carplay_carlife` gadget、未声明 usb.host → 有线 CarPlay 不可行的系统原因 |
+| [`15-氛围灯与HUD控制实测.md`](15-氛围灯与HUD控制实测.md) | **实机实测**：普通第三方可读写氛围灯（任意 RGB/亮度 0-255/分区）与 HUD 属性；adaptapi HUD 入口不可用；音乐律动三个来源都不通 |
+| [`16-热点与Wi-Fi状态.md`](16-热点与Wi-Fi状态.md) | 车机热点是 vendor 的 `p2p0` 本地热点，标准 SoftAP 状态看不到；原厂 `TcamWifi` / `ExternalWifiManager` 管 Wi-Fi/热点 |
 
 相关既有文档（同目录的上一级 `carDocs/`）：
 
@@ -60,6 +62,7 @@ npx -y rea-agents@6.4.0 search-android-classes <apk> "" --format json --filter-o
 高通 SA8155，Android 11）。车机把大量能力拆成多层：
 **AOSP Car → 车厂 CarService 扩展（`com.ecarx.car`）→ 适配代理（`com.autolink.*` + VDBus）→ OneOS API（`com.geely.*`）→ 应用**。
 对第三方（DiPlay）**已确认可用**的是：`Presentation` 投屏 + DIM `notifyDimProjectScreenSwitch`、
-`IInputManager` 方向盘键订阅、OneOS `INaviServer` 调用；
+`IInputManager` 方向盘键订阅、OneOS `INaviServer` 调用、`ECarXCar` 车辆属性（**氛围灯读写**、HUD 读）；
 **待验证**的高价值通道：`IProject` 投屏服务、`ExternalWifiManager`/`TcamWifi` 开关 Wi-Fi、
-`ECarXCarHardKeyManager` 拦麦克风键、`adaptapi` HUD 读写。
+`ECarXCarHardKeyManager` 拦麦克风键。
+**已实测不可用**：`adaptapi` HUD 入口（stub/崩溃）、音乐律动（拿不到音频频谱）。

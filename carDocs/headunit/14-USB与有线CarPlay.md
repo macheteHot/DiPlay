@@ -31,18 +31,30 @@ init.svc.vendor.usb-hal-1-2 = running
 - `sys.usb.config` 是 **Android gadget 功能表**，出现 `carplay_carlife` = **车厂自定义 USB 功能**
   （车机作为 USB 外设对外提供 CarPlay/CarLife 通道）。这是**设备角色**的配置。
 
-### 2.2 只声明了「配件(accessory)」，**没有声明 USB Host**
+### 2.2 USB Host 特性存在，但运行期是「设备角色」
 
-`system/permissions/` 里唯一 USB 相关是 `com.android.future.usb.accessory.xml`：
+`pm list features`（2026-10-14 实测）**有** `android.hardware.usb.host`：
 
-```xml
-<permissions>
-  <library name="com.android.future.usb.accessory" file="/system/framework/com.android.future.usb.accessory.jar"/>
-</permissions>
+```text
+feature:android.hardware.usb.accessory
+feature:android.hardware.usb.host
 ```
 
-**没有 `android.hardware.usb.host.xml`** → 系统特性 `android.hardware.usb.host`（`FEATURE_USB_HOST`）
-**预期为 false**（本车面向「手机当 host、车机当 accessory」设计）。
+所以问题不是"没声明 host"，而是**端口/控制器当前跑在设备（gadget）角色**：
+
+```text
+sys.usb.config  = carplay_carlife,adb          # gadget 功能表
+dumpsys usb / usb_ports / a600000.dwc3         # = configured（设备角色）
+dumpsys usb host_manager.num_connects = 0
+dumpsys usb device_manager.host_connected = false
+dumpsys usb port can_change_data_role = false   # App/系统改不了角色
+/sys/class/udc/a600000.dwc3 -> configured
+/sys/class/udc/a800000.dwc3 -> not attached
+```
+
+⇒ 车机作为 USB **外设**对外（`carplay_carlife`），Android 的 host 枚举不启用；
+`UsbManager.getDeviceList()` 看不到 iPhone，DiPlay 注册的 `device_attached`（Apple vendor `0x05AC`）
+也永远不会触发。`PhoneLinkVehicleHal.setUSBControl()` 之外，应用层无法把端口切成 host。
 
 ### 2.3 车机自己的有线互联怎么做的
 

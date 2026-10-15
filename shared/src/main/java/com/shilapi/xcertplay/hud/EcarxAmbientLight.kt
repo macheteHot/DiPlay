@@ -177,13 +177,13 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
             EcarxAmbientLightPolicy.Zone(
                 color = readValue(manager, "getPA_Zone${zone}ColorSettings"),
                 intensity = readValue(manager, "getPA_Zone${zone}IntensitySettings"),
-                status = readValue(manager, "getPA_Zone${zone}StatusSettings"),
+                status = readStatus(manager, "getPA_Zone${zone}StatusSettings"),
             )
         }
         val all = EcarxAmbientLightPolicy.Zone(
             color = readValue(manager, "getPA_ZoneAllColorSettings"),
             intensity = readValue(manager, "getPA_ZoneAllIntensitySettings"),
-            status = readValue(manager, "getPA_ZoneAllStatusSettings"),
+            status = readStatus(manager, "getPA_ZoneAllStatusSettings"),
         )
         Log.i(TAG, "lamp snapshot all=$all zones=$zones")
         return EcarxAmbientLightPolicy.Snapshot(zones, all)
@@ -195,14 +195,22 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
      * unknown state can never be mistaken for a real zero and written back as one.
      */
     private fun readValue(manager: Any, name: String): Int {
-        val result = invokeNoArg(manager, name) ?: return UNREADABLE
-        runCatching {
-            result.javaClass.getField("dataValue").get(result) as? Int
-        }.getOrNull()?.let { return it }
-        runCatching {
-            result.javaClass.getMethod("getDataValue").invoke(result) as? Int
-        }.getOrNull()?.let { return it }
-        return EcarxAmbientLightPolicy.parseDataValue(result.toString()) ?: UNREADABLE
+        val token = readDataValue(manager, name) ?: return UNREADABLE
+        return EcarxAmbientLightPolicy.parseDataValue(token) ?: UNREADABLE
+    }
+
+    /** A status property is `On` / `Off` rather than a number; see [EcarxAmbientLightPolicy.parseStatus]. */
+    private fun readStatus(manager: Any, name: String): Int {
+        val token = readDataValue(manager, name) ?: return UNREADABLE
+        return EcarxAmbientLightPolicy.parseStatus(token) ?: UNREADABLE
+    }
+
+    /** The `dataValue` as text: the field first, then its getter, then the whole `toString()`. */
+    private fun readDataValue(manager: Any, name: String): String? {
+        val result = invokeNoArg(manager, name) ?: return null
+        val field = runCatching { result.javaClass.getField("dataValue").get(result) }.getOrNull()
+            ?: runCatching { result.javaClass.getMethod("getDataValue").invoke(result) }.getOrNull()
+        return field?.toString() ?: result.toString()
     }
 
     /** A rare read-back so a silently ignored write is visible in a report, without failing the apply. */
@@ -211,7 +219,8 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         if (readsForDiagnostics % READ_BACK_EVERY != 0) return
         Log.i(TAG, "lamp readback all(color=${readValue(manager, "getPA_ZoneAllColorSettings")} " +
             "intensity=${readValue(manager, "getPA_ZoneAllIntensitySettings")} " +
-            "mode=${readValue(manager, "getPA_AmbLiModSetting")})")
+            "status=${readDataValue(manager, "getPA_ZoneAllStatusSettings")} " +
+            "mode=${readDataValue(manager, "getPA_AmbLiModSetting")})")
     }
 
     // ---------------------------------------------------------------- writes
@@ -297,7 +306,7 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         const val TAG = "DiPlay-Ambient"
         const val CLS_ECARX_CAR = "ecarx.car.ECarXCar"
         const val ON = 1
-        const val CONNECT_TIMEOUT_MILLIS = 6_000L
+        const val CONNECT_TIMEOUT_MILLIS = 10_000L
         const val CONNECT_POLL_MILLIS = 100L
         const val READ_BACK_EVERY = 20
         const val UNREADABLE = Int.MIN_VALUE

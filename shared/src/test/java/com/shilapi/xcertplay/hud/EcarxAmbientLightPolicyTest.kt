@@ -92,6 +92,39 @@ class EcarxAmbientLightPolicyTest {
         assertEquals(0, EcarxAmbientLightPolicy.parseDataValue("PATypes{dataValue = 0,}"))
     }
 
+    @Test fun aStatusIsOnOrOffRatherThanANumber() {
+        // Measured on the head unit: PA_Zone1StatusSettings{dataValue = Off}, PA_ZoneAllStatusSettings{... = On}.
+        val on = "PA_ZoneAllStatusSettings{availability = Active, dataValue = On, statusValue = 0, formatValue = 0}"
+        val off = "PA_Zone1StatusSettings{availability = Active, dataValue = Off, statusValue = 0, formatValue = 0}"
+        assertEquals(1, EcarxAmbientLightPolicy.parseStatus(on))
+        assertEquals(0, EcarxAmbientLightPolicy.parseStatus(off))
+        // The unwrapped field value reads the same way.
+        assertEquals(1, EcarxAmbientLightPolicy.parseStatus("On"))
+        assertEquals(0, EcarxAmbientLightPolicy.parseStatus("Off"))
+        // A vendor that reports the number instead is accepted too.
+        assertEquals(1, EcarxAmbientLightPolicy.parseStatus("PATypes{dataValue = 1}"))
+        assertEquals(0, EcarxAmbientLightPolicy.parseStatus("PATypes{dataValue = 0}"))
+    }
+
+    @Test fun anUnreadableStatusIsNotOff() {
+        // Writing 0 back for an unread status would turn a lit zone off.
+        assertNull(EcarxAmbientLightPolicy.parseStatus("PATypes{availability = Active}"))
+        assertNull(EcarxAmbientLightPolicy.parseStatus("PATypes{dataValue = NoReq}"))
+        assertNull(EcarxAmbientLightPolicy.parseStatus("PATypes{dataValue = 2}"))
+        assertNull(EcarxAmbientLightPolicy.parseStatus(""))
+    }
+
+    @Test fun aSnapshotIsValidWithTheValuesTheHeadUnitActuallyReports() {
+        // Live read 2026-10-15: Zones 1..2 lit, 3..5 off, ZoneAll on at intensity 20.
+        val lit = EcarxAmbientLightPolicy.Zone(color = 16736077, intensity = 20, status = 1)
+        val off = EcarxAmbientLightPolicy.Zone(color = 0, intensity = 0, status = 0)
+        val snapshot = EcarxAmbientLightPolicy.Snapshot(
+            zones = listOf(lit, EcarxAmbientLightPolicy.Zone(9140479, 20, 1), off, off, off),
+            all = EcarxAmbientLightPolicy.Zone(16751663, 20, 1),
+        )
+        assertTrue("the real head-unit state must be accepted as a restore target", snapshot.valid)
+    }
+
     @Test fun aToStringWithoutAUsableValueIsNotZero() {
         assertNull(EcarxAmbientLightPolicy.parseDataValue("PATypes{availability = Active}"))
         assertNull(EcarxAmbientLightPolicy.parseDataValue("PATypes{dataValue = unknown}"))

@@ -86,14 +86,24 @@ internal object EcarxAmbientLightPolicy {
     }
 
     /**
-     * `getPA_*` returns the vendor's `PATypes`. Its `dataValue` field is the reading; the probe read
-     * it out of `toString()` instead, so both are accepted (the field first, then that text form).
-     * Returns null when the value cannot be read at all, which must never be treated as zero.
+     * `getPA_*` returns the vendor's `PATypes`. Color and intensity answer with a number, but a
+     * **status property answers with `On` / `Off`** (measured: `PA_Zone1StatusSettings{dataValue = Off}`),
+     * so the two are parsed separately. Returns null when the value cannot be read at all, which must
+     * never be treated as zero: a status misread as `Off` would be written back that way.
      */
-    fun parseDataValue(text: String): Int? {
+    fun parseDataValue(text: String): Int? = dataValueToken(text)?.toIntOrNull()
+
+    /** A zone status: `On` -> 1, `Off` -> 0, or the number the vendor may report instead. */
+    fun parseStatus(text: String): Int? = when (dataValueToken(text)) {
+        "On", "1" -> 1
+        "Off", "0" -> 0
+        else -> null
+    }
+
+    /** The `dataValue` from a `PATypes.toString()`, or the whole text when it is already the value. */
+    private fun dataValueToken(text: String): String? {
         val at = text.indexOf("dataValue = ")
-        if (at < 0) return null
-        val token = text.substring(at + "dataValue = ".length).split(',', '}').firstOrNull()?.trim()
-        return token?.toIntOrNull()
+        val value = if (at >= 0) text.substring(at + "dataValue = ".length) else text
+        return value.split(',', '}').firstOrNull()?.trim()?.takeIf { it.isNotEmpty() }
     }
 }

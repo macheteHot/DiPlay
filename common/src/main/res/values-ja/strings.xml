@@ -706,6 +706,10 @@
     <string name="wheel_key_in_use">そのキーはすでに%1$sに割り当てられています。別のキーを選択してください。</string>
     <string name="wheel_siri_key">ステアリングのSiriキー</string>
     <string name="wheel_siri_key_description">CarPlayを表示している間、選択したステアリングスイッチでSiriを起動します。車が独自に使用するキーはステアリングスイッチサービスが必要ですが、このサービスはCarPlayがバックグラウンドでも動作します。CarPlayが停止中、または通話中は、そのキーに割り当てられた車両本来の操作を維持します。</string>
+    <string name="wheel_siri_double_press">ダブルクリックでSiriを起動</string>
+    <string name="wheel_siri_double_press_description">1回押した場合は車両本来の操作を維持します。設定した間隔内に2回押すと、設定した遅延後にDiPlayがSiriを起動します。車両のアシスタントが画面を占有する場合は、ステアリングスイッチサービスが必要です。すぐに反映されます。</string>
+    <string name="wheel_siri_double_press_interval">ダブルクリック間隔</string>
+    <string name="wheel_siri_trigger_delay">Siri起動遅延</string>
     <string name="wheel_siri_long_press_only">Siriは長押しのみ</string>
     <string name="wheel_siri_long_press_only_description">ステアリングの音声ボタンを長押ししたときだけSiriを起動します。短押しでは、DiPlayは何もしません。</string>
     <string name="wheel_key_role_back">戻る</string>
@@ -975,4 +979,15 @@
     <string name="settings_wifi_direct_scan_pause_description">Wi-Fi Directでは車が数秒ごとにWi-Fiネットワークを検索し、そのたびに音楽と映像が途切れます。オンにすると、CarPlayの実行中はDiPlayがこの検索を止めます。その間、車はスマートフォンのテザリングなど既知のネットワークにも自動では接続しません（車のWi-Fi設定から手動では接続できます）。自動で接続させたい場合はオフにしてください。次の接続から適用されます。</string>
     <string name="usb_carplay_unavailable_on_this_head_unit">この車載機では有線CarPlayは使用できません。USBポートがiPhoneをホストとして認識できないためです。Wi-Fi Directをご利用ください。</string>
     <string name="wireless_link_unavailable_on_this_head_unit">この車載機では利用できません。</string>
+    <string name="temporary_system_bars">システムバーを5秒間だけ表示</string>
+    <string name="temporary_system_bars_description">有効にすると、設定メニューで指定した本数の指で上にスワイプすると、隠した車載端末のステータスバー・ナビゲーションバーを5秒間表示します。下スワイプは従来どおりDiPlay設定を開きます。端末側のジェスチャーと競合する場合はオフにしてください。機種によっては表示できません。</string>
+    <string name="wheel_media_play_pause">ステアリングキーで再生・一時停止</string>
+    <string name="wheel_media_play_pause_description">ステアリングやキーボードの空いているキーをCarPlayの再生・一時停止に割り当てます。CarPlay動作中に利用できます。バックグラウンドで使うにはステアリングキーサービスが必要です。通話中・切断中は車両本来の操作を優先します。車載端末が専有するキーは受信できない場合があります。</string>
+    <string name="wheel_key_role_media_play_pause">再生／一時停止</string>
+    <string name="wheel_media_navigation_reserved">リモコンの方向・決定・戻る・ホーム・音量・音声アシスタント・既存の再生キーは割り当てできません。空いている別のキーを選んでください。</string>
+    <string name="black_corner_overlay">角を黒く丸める</string>
+    <string name="black_corner_overlay_description">CarPlay映像の四隅を黒く隠します。オフ、手動の半径、iPhoneのマスク（実験的機能）を選択できます。iPhone方式は再接続が必要です。画像を取得できない場合は24dpの近似表示に戻ります。手動調整はすぐにプレビューでき、保存で設定を保持します。</string>
+    <string name="black_corner_overlay_off">オフ</string>
+    <string name="black_corner_overlay_value">%1$d dp</string>
+    <string name="iphone_corner_mask_mode">iPhoneのマスク（実験的機能）</string>
 </resources>

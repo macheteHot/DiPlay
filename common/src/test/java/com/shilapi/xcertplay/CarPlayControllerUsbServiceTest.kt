@@ -113,6 +113,38 @@ class CarPlayControllerUsbServiceTest {
         assertTrue(statuses.contains(CarPlayStatus.RequestingMfiPermission))
     }
 
+    @Test fun aMissingIphoneIsReportedWithWhatAndroidListsOnce() {
+        // #763: the report said only "iPhone USB device not present", whether Android saw the port or not.
+        val context = UsbContext(true)
+        val usb = context.getSystemService(UsbManager::class.java)
+        val logs = mutableListOf<String>()
+        val controller = controller(context, CarPlayTransport.WIRED, MfiTarget.LOCAL, logs)
+        // Local MFi needs the private identity of a real build, so the attempt starts at the iPhone step.
+        ReflectionHelpers.setField(controller, "phase",
+            Class.forName("com.shilapi.xcertplay.orchestration.CarPlayController\$Phase").enumConstants
+                .single { (it as Enum<*>).name == "IPHONE" })
+        ReflectionHelpers.callInstanceMethod<Unit>(controller, "checkIphoneAvailability")
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(5))
+        assertTrue(statuses.contains(CarPlayStatus.WaitingForIphone))
+        assertEquals(listOf("wired iPhone not listed by Android; USB devices=[]"),
+            logs.filter { it.startsWith("wired iPhone") })
+
+        // A USB stick in the port is listed, once.
+        shadowOf(usb).addOrUpdateUsbDevice(usbDevice(0x0781, 0x5567, "/dev/bus/usb/001/003"), false)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(5))
+        assertEquals(listOf("wired iPhone not listed by Android; USB devices=[]",
+            "wired iPhone not listed by Android; USB devices=[0781:5567 /dev/bus/usb/001/003]"),
+            logs.filter { it.startsWith("wired iPhone") })
+        // The report keeps the lines as they are.
+        logs.filter { it.startsWith("wired iPhone not listed") }.forEach { assertEquals(it, DiagnosticRedactor.redact(it)) }
+
+        // Then the iPhone: found as before.
+        shadowOf(usb).addOrUpdateUsbDevice(usbDevice(0x05ac, 0x12a8, "/dev/bus/usb/001/004"), false)
+        shadowOf(Looper.getMainLooper()).idleFor(Duration.ofSeconds(3))
+        assertEquals("wired iPhone discovered vid=0x5ac pid=0x12a8", logs.filter { it.startsWith("wired iPhone") }[2])
+        assertTrue(statuses.contains(CarPlayStatus.RequestingIphonePermission))
+    }
+
     private fun usbDevice(vendor: Int, product: Int, node: String): UsbDevice =
         ReflectionHelpers.newInstance(UsbDevice::class.java).apply {
             ReflectionHelpers.setField(this, "mName", node)

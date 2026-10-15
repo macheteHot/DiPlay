@@ -625,6 +625,10 @@
     <string name="wheel_key_in_use">Эта кнопка уже назначена для «%1$s». Выберите другую кнопку.</string>
     <string name="wheel_siri_key">Кнопка Siri на руле</string>
     <string name="wheel_siri_key_description">Открывает Siri кнопкой на руле, которую вы выберете, пока CarPlay на экране. Кнопка, которую автомобиль оставляет себе, работает только со службой кнопок руля; служба работает и когда CarPlay в фоне. Без CarPlay или во время звонка кнопка сохраняет своё действие в автомобиле.</string>
+    <string name="wheel_siri_double_press">Двойное нажатие для Siri</string>
+    <string name="wheel_siri_double_press_description">Одиночное нажатие сохраняет действие автомобиля. Нажмите дважды за выбранный интервал, и DiPlay откроет Siri после выбранной задержки. Если ассистент автомобиля занимает экран, требуется служба кнопок руля. Применяется сразу.</string>
+    <string name="wheel_siri_double_press_interval">Интервал двойного нажатия</string>
+    <string name="wheel_siri_trigger_delay">Задержка запуска Siri</string>
     <string name="wheel_siri_long_press_only">Siri только по долгому нажатию</string>
     <string name="wheel_siri_long_press_only_description">Siri открывается только долгим нажатием кнопки голосового управления на руле. Короткое нажатие в DiPlay ничего не делает.</string>
     <string name="wheel_key_role_back">назад</string>
@@ -873,4 +877,15 @@
     <string name="settings_wifi_direct_scan_pause_description">В режиме Wi-Fi Direct автомобиль ищет сети Wi-Fi каждые несколько секунд, и каждый поиск прерывает музыку и видео. Когда параметр включён, DiPlay приостанавливает поиск, пока работает CarPlay. Тогда автомобиль и сам не подключается к известной сети, например к точке доступа телефона, пока CarPlay не завершится; подключиться можно вручную в настройках Wi-Fi автомобиля. Выключите, чтобы автомобиль подключался сам. Применяется при следующем подключении.</string>
     <string name="usb_carplay_unavailable_on_this_head_unit">Проводной CarPlay не работает на этом головном устройстве: его USB-порт не может работать как хост для iPhone. Используйте Wi-Fi Direct.</string>
     <string name="wireless_link_unavailable_on_this_head_unit">Недоступно на этом головном устройстве.</string>
+    <string name="temporary_system_bars">Показать системные панели на 5 секунд</string>
+    <string name="temporary_system_bars_description">При включении проведите вверх числом пальцев, заданным для меню DiPlay, чтобы на пять секунд показать скрытые панели автомобиля. Свайп вниз по-прежнему открывает настройки. Отключите при конфликте жестов; некоторые устройства не поддерживают показ.</string>
+    <string name="wheel_media_play_pause">Кнопка воспроизведения/паузы на руле</string>
+    <string name="wheel_media_play_pause_description">Назначьте свободную кнопку руля или клавиатуры для переключения воспроизведения CarPlay. В фоновом режиме нужна служба кнопок руля. Во время звонка или без подключения кнопка сохраняет своё действие. Прошивка может перехватывать некоторые кнопки.</string>
+    <string name="wheel_key_role_media_play_pause">Воспроизведение/пауза</string>
+    <string name="wheel_media_navigation_reserved">Кнопки навигации, «Домой», громкости, голосового помощника и медиа сохраняют свои функции. Выберите другую кнопку.</string>
+    <string name="black_corner_overlay">Чёрные закруглённые углы</string>
+    <string name="black_corner_overlay_description">Закрывает углы CarPlay чёрным. Выберите Выкл., ручной радиус или маску iPhone (экспериментально). Для режима iPhone требуется переподключение; без действительной маски используется приближение 24 dp. Ручные изменения отображаются сразу, выбор сохраняется кнопкой сохранения.</string>
+    <string name="black_corner_overlay_off">Выкл.</string>
+    <string name="black_corner_overlay_value">%1$d dp</string>
+    <string name="iphone_corner_mask_mode">Маска iPhone (экспериментально)</string>
 </resources>

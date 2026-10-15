@@ -24,9 +24,11 @@ android {
 
     testOptions {
         unitTests.isIncludeAndroidResources = true
-        // The UI suite covers several SDKs and locale-specific resource sandboxes. The fork adds its
-        // own Robolectric suites (Geely cluster, launcher bubble, …) on top of upstream's, so the
-        // combined heap need exceeds upstream's 1g and the shared suite OOMs at 1g.
+        // The UI suite covers several SDKs and locale-specific resource sandboxes. 1g sat right at the
+        // ceiling: adding one more Robolectric class pushed a full run into OutOfMemoryError in
+        // unrelated tests, on CI and locally both, which is what BydSettingsDecoyTest measured.
+        // The fork adds its own Robolectric suites (Geely cluster, launcher bubble, …) on top of
+        // upstream's, so the combined heap need also exceeds upstream's 1g.
         unitTests.all { it.maxHeapSize = "2g" }
     }
 }

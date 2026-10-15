@@ -625,6 +625,10 @@
     <string name="wheel_key_in_use">Ese botón ya es el botón de %1$s. Elige otro botón.</string>
     <string name="wheel_siri_key">Botón de Siri en el volante</string>
     <string name="wheel_siri_key_description">Abre Siri con un botón del volante que elijas mientras CarPlay está en pantalla. Un botón que el coche reserva para sí mismo solo funciona con el servicio de botones del volante, que también funciona con CarPlay en segundo plano. Sin CarPlay, o durante una llamada, el botón conserva su función en el coche.</string>
+    <string name="wheel_siri_double_press">Doble pulsación para Siri</string>
+    <string name="wheel_siri_double_press_description">Una sola pulsación conserva la función del coche. Pulsa dos veces dentro del intervalo elegido; DiPlay abre Siri tras el retardo seleccionado. Se requiere el servicio de botones del volante si el asistente del coche ocupa la pantalla. Se aplica inmediatamente.</string>
+    <string name="wheel_siri_double_press_interval">Intervalo de doble pulsación</string>
+    <string name="wheel_siri_trigger_delay">Retardo para iniciar Siri</string>
     <string name="wheel_siri_long_press_only">Siri solo con pulsación larga</string>
     <string name="wheel_siri_long_press_only_description">Solo una pulsación larga del botón de voz del volante abre Siri. Una pulsación corta no hace nada en DiPlay.</string>
     <string name="wheel_key_role_back">atrás</string>
@@ -873,4 +877,15 @@
     <string name="settings_wifi_direct_scan_pause_description">Con Wi-Fi Direct el coche busca redes Wi-Fi cada pocos segundos, y cada búsqueda hace que la música y el vídeo se corten. Con esta opción, DiPlay pausa la búsqueda mientras CarPlay está activo. Entonces el coche tampoco se conecta solo a una red conocida, como el punto de acceso de tu teléfono, hasta que CarPlay termina; puedes conectarte a mano en los ajustes de Wi-Fi del coche. Desactívala para que el coche se conecte solo. Se aplica en la próxima conexión.</string>
     <string name="usb_carplay_unavailable_on_this_head_unit">CarPlay por cable no funciona en esta unidad: su puerto USB no puede actuar como anfitrión de un iPhone. Usa Wi-Fi Direct.</string>
     <string name="wireless_link_unavailable_on_this_head_unit">No disponible en esta unidad.</string>
+    <string name="temporary_system_bars">Mostrar barras del sistema durante 5 segundos</string>
+    <string name="temporary_system_bars_description">Opcional: desliza hacia arriba con el número de dedos configurado para abrir los ajustes de DiPlay y mostrar durante cinco segundos las barras ocultas del vehículo. Deslizar hacia abajo sigue abriendo los ajustes. Desactívalo si hay conflictos; algunos equipos pueden ignorarlo.</string>
+    <string name="wheel_media_play_pause">Tecla reproducir/pausar del volante</string>
+    <string name="wheel_media_play_pause_description">Asigna una tecla disponible del volante o teclado para alternar reproducción y pausa en CarPlay. Funciona con CarPlay conectado, también en segundo plano con el servicio de teclas activo. Durante llamadas o sin conexión, conserva su función original. El vehículo puede reservar ciertas teclas.</string>
+    <string name="wheel_key_role_media_play_pause">Reproducir/pausar</string>
+    <string name="wheel_media_navigation_reserved">Las teclas de navegación, Inicio, volumen, asistente de voz y multimedia conservan sus funciones originales. Elige otra tecla.</string>
+    <string name="black_corner_overlay">Esquinas redondeadas negras</string>
+    <string name="black_corner_overlay_description">Cubre de negro las esquinas de CarPlay. Elige Desactivado, un radio manual o la máscara del iPhone (experimental). El modo iPhone necesita reconexión y vuelve a 24 dp si no llega una máscara válida. Los cambios manuales se previsualizan al instante; guarda para conservarlos.</string>
+    <string name="black_corner_overlay_off">Desactivado</string>
+    <string name="black_corner_overlay_value">%1$d dp</string>
+    <string name="iphone_corner_mask_mode">Máscara del iPhone (experimental)</string>
 </resources>

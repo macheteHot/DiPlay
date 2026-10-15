@@ -669,6 +669,10 @@
     <string name="wheel_key_in_use">该按键已用于%1$s。请选择其他按键。</string>
     <string name="wheel_siri_key">方向盘 Siri 按键</string>
     <string name="wheel_siri_key_description">在 CarPlay 显示于屏幕时，用你选择的方向盘按键打开 Siri。车辆自身保留的按键只能配合方向盘按键服务使用，该服务在 CarPlay 处于后台时也可使用。未连接 CarPlay 或通话时，该按键保留车辆原有功能。</string>
+    <string name="wheel_siri_double_press">双击触发 Siri</string>
+    <string name="wheel_siri_double_press_description">单击保留车辆原有功能。在设定间隔内按两次，DiPlay 会在设定延时后打开 Siri。如果原车助手会接管屏幕，则必须启用方向盘按键服务。立即生效。</string>
+    <string name="wheel_siri_double_press_interval">双击间隔</string>
+    <string name="wheel_siri_trigger_delay">Siri 触发延时</string>
     <string name="wheel_siri_long_press_only">仅长按打开 Siri</string>
     <string name="wheel_siri_long_press_only_description">只有长按方向盘语音键才会打开 Siri，短按时 DiPlay 不执行任何操作。</string>
     <string name="wheel_key_role_back">返回</string>
@@ -933,4 +937,15 @@
     <string name="settings_wifi_direct_scan_pause_description">Wi-Fi 直连时，车机每隔几秒搜索一次 Wi-Fi 网络，每次搜索都会让音乐和画面卡顿。开启后，CarPlay 运行期间 DiPlay 会暂停这个搜索。这段时间车机也不会自动连接已知网络（例如手机热点），可以在车机 Wi-Fi 设置里手动连接；CarPlay 结束后恢复。关闭后车机可以自动连接。下次连接时生效。</string>
     <string name="usb_carplay_unavailable_on_this_head_unit">这台车机不支持有线 CarPlay：它的 USB 口不能作为主机识别 iPhone。请使用 Wi-Fi Direct。</string>
     <string name="wireless_link_unavailable_on_this_head_unit">此车机不支持该方式。</string>
+    <string name="temporary_system_bars">临时显示系统栏（5 秒）</string>
+    <string name="temporary_system_bars_description">开启后，使用与 DiPlay 设置手势相同数量的手指向上滑动，暂时显示车机状态栏和导航栏 5 秒；向下滑动仍打开 DiPlay 设置。如果与车机手势冲突，请关闭此功能。部分设备可能无法显示。</string>
+    <string name="wheel_media_play_pause">方向盘播放／暂停按钮</string>
+    <string name="wheel_media_play_pause_description">将空闲的方向盘或键盘按键映射为 CarPlay 音乐播放／暂停。CarPlay 连接时可用；后台运行需要启用方向盘按键服务。通话或断开连接时保留车辆原有功能。车机可能拦截部分按键。</string>
+    <string name="wheel_key_role_media_play_pause">播放／暂停</string>
+    <string name="wheel_media_navigation_reserved">遥控器的导航、主页、音量、语音助手及现有媒体按键保留原有功能。请选择其他空闲按键。</string>
+    <string name="black_corner_overlay">黑色圆角遮罩</string>
+    <string name="black_corner_overlay_description">将 CarPlay 画面四角遮成黑色。可选择关闭、手动圆角半径或 iPhone 遮罩（实验性）。iPhone 模式需要重新连接；若未收到有效遮罩，则使用 24 dp 近似值。手动调整可立即预览，保存后保留设置。</string>
+    <string name="black_corner_overlay_off">关闭</string>
+    <string name="black_corner_overlay_value">%1$d dp</string>
+    <string name="iphone_corner_mask_mode">iPhone 遮罩（实验性）</string>
 </resources>

@@ -111,9 +111,11 @@ object AirPlayPersistence {
     private const val KEY_RIGHT_HAND_DRIVE = "right_hand_drive"
     private const val KEY_HIDE_TOP_BAR = "hide_top_bar"
     private const val KEY_HIDE_BOTTOM_BAR = "hide_bottom_bar"
+    private const val KEY_TEMPORARY_SYSTEM_BARS = "temporary_system_bars"
     private const val KEY_HARMAN_FULLSCREEN = "harman_fullscreen"
     private const val KEY_SAFE_AREA_DRAW_OUTSIDE = "safe_area_draw_outside"
     private const val KEY_MAIN_DISPLAY_DISABLE_SAFE_AREA = "main_display_disable_safe_area"
+    private const val KEY_BLACK_CORNER_RADIUS = "black_corner_radius_dp"
     private const val KEY_ADAPT_PIP_RESOLUTION = "adapt_pip_resolution"
     private const val KEY_AUTO_START_ON_BOOT = "auto_start_on_boot"
     private const val KEY_BT_SUSPEND_DURING_CARPLAY = "bt_suspend_during_carplay"
@@ -1379,6 +1381,17 @@ object AirPlayPersistence {
             .apply()
     }
 
+    /** Optional three-finger upward reveal; does not alter the saved bar visibility preference. */
+    fun loadTemporarySystemBars(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getBoolean(KEY_TEMPORARY_SYSTEM_BARS, false)
+
+    fun saveTemporarySystemBars(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putBoolean(KEY_TEMPORARY_SYSTEM_BARS, enabled)
+            .apply()
+    }
+
     fun loadHarmanFullscreen(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
             .getBoolean(KEY_HARMAN_FULLSCREEN, false)
@@ -1408,6 +1421,18 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
             .putBoolean(KEY_MAIN_DISPLAY_DISABLE_SAFE_AREA, disable)
             .apply()
+    }
+
+    /** Local video overlay; does not alter the iPhone's display or safe-area negotiation. */
+    fun loadBlackCornerRadiusDp(context: Context): Int =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
+            .getInt(KEY_BLACK_CORNER_RADIUS, 0)
+            .takeIf { it in CarPlayBlackCornerOverlay.RADII_DP } ?: 0
+
+    fun saveBlackCornerRadiusDp(context: Context, value: Int) {
+        require(value in CarPlayBlackCornerOverlay.RADII_DP)
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
+            .putInt(KEY_BLACK_CORNER_RADIUS, value).apply()
     }
 
     fun loadSafeAreaRect(context: Context, widthPixels: Int, heightPixels: Int): SafeAreaRect? {

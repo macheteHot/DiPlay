@@ -625,6 +625,10 @@
     <string name="wheel_key_in_use">هذا الزر مخصّص بالفعل لـ %1$s. اختر زرًا آخر.</string>
     <string name="wheel_siri_key">زر Siri على المقود</string>
     <string name="wheel_siri_key_description">يفتح Siri بزر على المقود تختاره عندما تكون CarPlay على الشاشة. الزر الذي تحتفظ به السيارة لنفسها لا يعمل إلا مع خدمة أزرار المقود، التي تعمل أيضًا عندما تكون CarPlay في الخلفية. من دون CarPlay، أو أثناء مكالمة، يحتفظ الزر بوظيفته في السيارة.</string>
+    <string name="wheel_siri_double_press">ضغط مزدوج لتشغيل Siri</string>
+    <string name="wheel_siri_double_press_description">تحتفظ الضغطة الواحدة بوظيفة السيارة. اضغط مرتين ضمن الفاصل المحدد، وسيفتح DiPlay ‏Siri بعد التأخير المحدد. تلزم خدمة أزرار المقود إذا استحوذ مساعد السيارة على الشاشة. يسري فورًا.</string>
+    <string name="wheel_siri_double_press_interval">فاصل الضغط المزدوج</string>
+    <string name="wheel_siri_trigger_delay">تأخير تشغيل Siri</string>
     <string name="wheel_siri_long_press_only">Siri بالضغط المطوّل فقط</string>
     <string name="wheel_siri_long_press_only_description">يفتح Siri بالضغط المطوّل على زر الصوت في المقود فقط. لا يفعل الضغط القصير شيئًا في DiPlay.</string>
     <string name="wheel_key_role_back">رجوع</string>
@@ -922,4 +926,15 @@
     <string name="settings_wifi_direct_scan_pause_description">مع Wi-Fi Direct تبحث السيارة عن شبكات Wi-Fi كل بضع ثوانٍ، وكل بحث يجعل الموسيقى والفيديو يتقطعان. عند تشغيل هذا الخيار يوقف DiPlay البحث أثناء تشغيل CarPlay. عندها لا تتصل السيارة تلقائيًا بشبكة معروفة، مثل نقطة اتصال هاتفك، حتى ينتهي CarPlay؛ ويمكنك الاتصال بها يدويًا من إعدادات Wi-Fi في السيارة. أوقفه لتتصل السيارة تلقائيًا. يُطبَّق عند الاتصال التالي.</string>
     <string name="usb_carplay_unavailable_on_this_head_unit">لا يعمل CarPlay السلكي على هذه الوحدة: منفذ USB فيها لا يمكنه استضافة iPhone. استخدم Wi-Fi Direct.</string>
     <string name="wireless_link_unavailable_on_this_head_unit">غير متاح على هذه الوحدة.</string>
+    <string name="temporary_system_bars">إظهار أشرطة النظام لمدة 5 ثوانٍ</string>
+    <string name="temporary_system_bars_description">اختياري: مرر لأعلى بعدد الأصابع المضبوط لفتح إعدادات DiPlay لعرض أشرطة حالة وتنقل السيارة المخفية لخمس ثوانٍ. التمرير لأسفل يفتح إعدادات DiPlay. عطّل الخيار إذا تعارض مع إيماءات السيارة؛ وقد تتجاهله بعض الأجهزة.</string>
+    <string name="wheel_media_play_pause">زر تشغيل/إيقاف مؤقت على المقود</string>
+    <string name="wheel_media_play_pause_description">عيّن زرًا متاحًا على المقود أو لوحة المفاتيح لتبديل تشغيل موسيقى CarPlay. يعمل أثناء الاتصال، وفي الخلفية عند تفعيل خدمة أزرار المقود. أثناء المكالمات أو عدم الاتصال، يحتفظ الزر بوظيفته الأصلية. قد يمنع نظام السيارة وصول بعض الأزرار.</string>
+    <string name="wheel_key_role_media_play_pause">تشغيل/إيقاف مؤقت</string>
+    <string name="wheel_media_navigation_reserved">أزرار التنقل والصفحة الرئيسية والصوت والمساعد الصوتي والوسائط محجوزة لوظائفها الأصلية. اختر زرًا آخر.</string>
+    <string name="black_corner_overlay">زوايا مستديرة سوداء</string>
+    <string name="black_corner_overlay_description">تغطية زوايا CarPlay بالأسود. اختر إيقافًا أو نصف قطر يدويًا أو قناع iPhone (تجريبي). يحتاج وضع iPhone إلى إعادة اتصال، ويعود إلى تقريب 24 dp إن تعذر الحصول على القناع. تظهر التعديلات اليدوية فورًا، ويحفظ زر الحفظ الاختيار.</string>
+    <string name="black_corner_overlay_off">إيقاف</string>
+    <string name="black_corner_overlay_value">%1$d dp</string>
+    <string name="iphone_corner_mask_mode">قناع iPhone (تجريبي)</string>
 </resources>

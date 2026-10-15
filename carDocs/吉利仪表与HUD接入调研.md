@@ -396,6 +396,49 @@ adb shell 'service call DimNaviService 10'      # Result: Parcel(00000000 000000
 
 测试：`common/src/test/.../ClusterProjectionWatchdogTest.kt`。
 
+### 11.4 实测验证（2026-10-15，修复后上车）
+
+**驱动链路（这次抓全了）**：方向盘地图键 → `com.geely.inputservice`（`InputServiceLog-OneOsApiManager`）
+→ `com.geely.naviService` 发 **协议 30800** `switchMapPresentation{screenMode:1, operateType, screenWindow:1002}`
+→ 车机执行 `DimNaviService.notifyDimProjectScreenSwitch`；地图侧用 `ExternalScreenController.createMapView`
++ `ExternalScreenPresentation` 在 display 2 上建自己的窗口。`operateType`：`0=OPEN`、`1=CLOSE`。
+
+**唤醒地图时**（按方向盘键，完整序列）：
+
+```text
+23:09:49.305  naviService: switchMapPresentation {operateType:1(CLOSE), screenWindow:1002}
+23:09:49.307  DimNaviService: notifyDimProjectScreenSwitchFun turnId(false)      # 开关被关掉 = CarPlay 被踢下仪表
+23:09:52.134  lynkPlay-Cluster: cluster projection was taken away; asking for it again
+23:09:52.135  DimNaviService: notifyDimProjectScreenSwitchFun turnId(true)       # 看护夺回
+23:09:52.573  naviService: switchMapPresentation {operateType:1(CLOSE)}          # 车机拆装过程中又关一次
+23:09:52.575  DimNaviService: notifyDimProjectScreenSwitchFun turnId(false)
+23:09:54.870  naviService: switchMapPresentation {operateType:0(OPEN), screenWindow:1002}
+23:09:55.001  ExternalScreenPresentation: onCreate                               # 地图的仪表窗口建立
+23:09:55.242  DimNaviService: notifyDimProjectScreenSwitchFun turnId(true)       # 投影 ON（地图的）
+```
+
+地图占用期间 `getDimProjectScreenStatus()` 读到 **on**，看护**不干预**（预期行为，已验证不抢）。
+
+**关闭地图时**（本次修复的验收点）：
+
+```text
+23:10:40.089  ExternalScreenPresentation: onDisplayRemoved                       # 地图的仪表窗口销毁
+23:10:41.199  DimNaviService: notifyDimProjectScreenSwitchFun turnId(false)      # ★ 修复前到此为止，仪表再也不亮
+23:10:44.207  lynkPlay-Cluster: cluster projection was taken away; asking for it again
+23:10:44.208  DimNaviService: notifyDimProjectScreenSwitchFun turnId(true)
+23:10:44.221  lynkPlay-Cluster: dim projection: notifyDimProjectScreenSwitch(true) ok
+```
+
+**关地图 → CarPlay 回到仪表：3.0 s**（最坏两个 tick ≈ 4 s）。修复前该 `turnId(false)` 无人接手，仪表一直是黑的。
+
+两个已知行为（都不影响验收，记录备查）：
+
+1. **地图拆装期间会有一次短暂"对拉"**：车机在 `23:09:52.57` 再发一次 CLOSE，与我们在 `.134` 的重夺交叉（相差 0.44 s）。
+   结果无害（地图随后 `OPEN` 自己拿回），但若将来要更保守，可加一道"仅当 display 2 最上层窗口是自己时才重夺"的守卫。
+2. **覆盖安装时开关会被留在 ON**：旧进程被 PackageManager 杀掉，`onStop` 没机会发 `set(false)`，
+   于是"开关 ON 但 display 2 上没有窗口"。下次 `onStart` 会重新对齐，重装后重启 DiPlay 即恢复。
+
+
 
 
 

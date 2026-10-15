@@ -4,6 +4,8 @@ import android.content.Context
 import android.util.Log
 import com.shilapi.xcertplay.hud.BydAmbientLightClient
 import com.shilapi.xcertplay.hud.BydAmbientLightPolicy
+import com.shilapi.xcertplay.hud.EcarxAmbientLightClient
+import com.shilapi.xcertplay.hud.EcarxAmbientLightPolicy
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
@@ -31,10 +33,14 @@ object AmbientMusicController {
     private var lastLogMillis = 0L
     private var idleSinceMillis: Long? = null
 
-    private val lampSession = AmbientLampSession(
+    /**
+     * One session per lamp backend. Only the active device's session ever opens a client: the factory
+     * runs on the first `update` after enabling, so the other one stays idle and costs nothing.
+     */
+    private val bydLampSession = AmbientLampSession(
         factory = {
             val real = BydAmbientLightClient(requireNotNull(context))
-            object : AmbientLampSession.Client {
+            object : AmbientLampSession.Client<BydAmbientLightPolicy.Snapshot> {
                 override fun unhealthy(): Boolean {
                     val phase = real.status().phase
                     return phase == BydAmbientLightClient.Phase.FAILED || phase == BydAmbientLightClient.Phase.CLOSED
@@ -50,16 +56,45 @@ object AmbientMusicController {
         },
         dispatch = { executor.execute(it) },
         now = { android.os.SystemClock.uptimeMillis() },
+        validate = { BydAmbientLightPolicy.validSnapshot(it) },
         log = { Log.i("DiPlay-Ambient", it) },
-        applied = { desired ->
-            appliedCount++
-            val now = android.os.SystemClock.uptimeMillis()
-            if (now - lastLogMillis >= 5_000) {
-                lastLogMillis = now
-                Log.i("DiPlay-Ambient", "applied=$appliedCount area=${desired.first} color=${desired.second} brightness=${desired.third} colorMode=${settings.colorMode} estimatedBpm=${colors.estimatedBpm?.toInt() ?: 0}")
+        applied = { noteApplied(it) },
+    )
+
+    /**
+     * The Geely / Lynk & Co head unit: no ADB and no worker process, so nothing to lease and the stop
+     * is a direct property write (see [EcarxAmbientLightClient]).
+     */
+    private val ecarxLampSession = AmbientLampSession(
+        factory = {
+            val real = EcarxAmbientLightClient(requireNotNull(context))
+            object : AmbientLampSession.Client<EcarxAmbientLightPolicy.Snapshot> {
+                override fun unhealthy() = real.unhealthy()
+                override fun begin(seed: EcarxAmbientLightPolicy.Snapshot?) = real.begin(seed)
+                override fun apply(desired: Triple<Int, Int, Int>) = real.apply(desired.first, desired.second, desired.third)
+                override fun stop() = real.stop()
+                override fun close() = real.close()
             }
         },
+        dispatch = { executor.execute(it) },
+        now = { android.os.SystemClock.uptimeMillis() },
+        validate = { it.valid },
+        leaseMillis = 0L,
+        log = { Log.i("DiPlay-Ambient", it) },
+        applied = { noteApplied(it) },
     )
+
+    private val lampSession: AmbientLampSession<*>
+        get() = if (EcarxAmbientLightPolicy.supported()) ecarxLampSession else bydLampSession
+
+    private fun noteApplied(desired: Triple<Int, Int, Int>) {
+        appliedCount++
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastLogMillis >= 5_000) {
+            lastLogMillis = now
+            Log.i("DiPlay-Ambient", "applied=$appliedCount area=${desired.first} color=${desired.second} brightness=${desired.third} colorMode=${settings.colorMode} estimatedBpm=${colors.estimatedBpm?.toInt() ?: 0}")
+        }
+    }
 
     // The 20 Hz lamp update, scheduled only while the feature is on; turning it off restores the lamps by itself.
     private var ticking: ScheduledFuture<*>? = null
@@ -156,12 +191,25 @@ object AmbientMusicController {
         else colors = AmbientMusicColorDetector(initial, palette, AmbientColorSpeed.STANDARD, random)
     }
 
-    /** Checks existing authorization and lamp readback only; never asks for ADB or writes a lamp. */
+    /**
+     * Read-only support check for the settings dialog; never asks for ADB and never writes a lamp.
+     *
+     * BYD needs existing authorization plus a lamp readback through its worker. The Geely / Lynk head
+     * unit has neither: the ECARX car API is in-process, so the check is a plain property read.
+     */
     fun checkSupport(context: Context): java.util.concurrent.CompletableFuture<Boolean> {
         val result = java.util.concurrent.CompletableFuture<Boolean>()
         executor.execute {
             if (lampSession.isReady()) {
                 result.complete(true)
+                return@execute
+            }
+            if (EcarxAmbientLightPolicy.supported()) {
+                val client = EcarxAmbientLightClient(context.applicationContext)
+                client.read().whenComplete { snapshot, error ->
+                    client.close()
+                    result.complete(error == null && snapshot != null)
+                }
                 return@execute
             }
             val client = BydAmbientLightClient(context.applicationContext)

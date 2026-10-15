@@ -4,29 +4,33 @@ import com.shilapi.xcertplay.hud.BydAmbientLightPolicy
 import java.util.concurrent.CompletableFuture
 
 /** Serialized lamp lifecycle used by the real controller and fake-client tests. No audio or timer thread here. */
-internal class AmbientLampSession(
-    private val factory: () -> Client,
+internal class AmbientLampSession<S : Any>(
+    private val factory: () -> Client<S>,
     private val dispatch: (() -> Unit) -> Unit,
     private val now: () -> Long,
+    /** Device-specific snapshot validation, so an unverified state never becomes the restore target. */
+    private val validate: (S) -> Boolean,
+    /** Floor before retrying after a stop that never confirmed; a lease-holding worker needs its own. */
+    private val leaseMillis: Long = BydAmbientLightPolicy.LEASE_MILLIS,
     private val log: (String) -> Unit = {},
     private val applied: (Triple<Int, Int, Int>) -> Unit = {},
 ) {
-    interface Client {
+    interface Client<S> {
         fun unhealthy(): Boolean
-        fun begin(seed: BydAmbientLightPolicy.Snapshot?): CompletableFuture<BydAmbientLightPolicy.Snapshot>
+        fun begin(seed: S?): CompletableFuture<S>
         fun apply(desired: Triple<Int, Int, Int>): CompletableFuture<Unit>
         fun stop(): CompletableFuture<Unit>
         /** Called after stop completes; must close stdin/transport before returning control to future retries. */
         fun close()
     }
     private var enabled = false
-    private var client: Client? = null
+    private var client: Client<S>? = null
     private var ready = false
     private var applying = false
     private var stopping = false
     private var failures = 0
     private var retryAt = 0L
-    private var original: BydAmbientLightPolicy.Snapshot? = null
+    private var original: S? = null
     private var restoreUnconfirmed = false
     private var lastApplied: Triple<Int, Int, Int>? = null
     private val cadence = AmbientMusicApplyCadence()
@@ -60,11 +64,11 @@ internal class AmbientLampSession(
             ready = false
             log("lamp begin retry=$failures seeded=${original != null}")
             val started = try { opening.begin(original) } catch (error: Throwable) {
-                CompletableFuture<BydAmbientLightPolicy.Snapshot>().also { it.completeExceptionally(error) }
+                CompletableFuture<S>().also { it.completeExceptionally(error) }
             }
             started.whenComplete { snapshot, error -> dispatch {
                 if (client !== opening || stopping) return@dispatch
-                if (error != null || snapshot == null || !BydAmbientLightPolicy.validSnapshot(snapshot)) {
+                if (error != null || snapshot == null || !validate(snapshot)) {
                     failOwned("begin")
                 } else {
                     if (original == null) original = snapshot
@@ -101,7 +105,7 @@ internal class AmbientLampSession(
     private fun scheduleRetry(uncertainStop: Boolean) {
         val backoff = when (failures.coerceAtMost(3)) { 0 -> 5_000L; 1 -> 10_000L; 2 -> 20_000L; else -> 30_000L }
         failures = (failures + 1).coerceAtMost(4)
-        val delay = maxOf(backoff, if (uncertainStop) BydAmbientLightPolicy.LEASE_MILLIS + 1_000 else 0)
+        val delay = maxOf(backoff, if (uncertainStop) leaseMillis + 1_000 else 0)
         retryAt = now() + delay
         log("lamp retry in ${delay}ms enabled=$enabled restorePending=$uncertainStop")
     }

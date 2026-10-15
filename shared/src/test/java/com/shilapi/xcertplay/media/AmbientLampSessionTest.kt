@@ -8,7 +8,7 @@ import org.junit.Test
 class AmbientLampSessionTest {
     private val original = BydAmbientLightPolicy.Snapshot(7, 23, 2, 5, 2)
     private val desired = Triple(3, 15, 6)
-    private class Fake : AmbientLampSession.Client {
+    private class Fake : AmbientLampSession.Client<BydAmbientLightPolicy.Snapshot> {
         var failed = false
         var seed: BydAmbientLightPolicy.Snapshot? = null
         val begin = CompletableFuture<BydAmbientLightPolicy.Snapshot>()
@@ -29,7 +29,9 @@ class AmbientLampSessionTest {
         var applies = 0
         val engine = AmbientLampSession(
             factory = { Fake().also { clients.add(it) } },
-            dispatch = { callbacks.addLast(it) }, now = { time }, applied = { applies++ },
+            dispatch = { callbacks.addLast(it) }, now = { time },
+            validate = { BydAmbientLightPolicy.validSnapshot(it) },
+            applied = { applies++ },
         )
         fun drain() { while (callbacks.isNotEmpty()) callbacks.removeFirst()() }
     }

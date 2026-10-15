@@ -72,6 +72,7 @@ import com.shilapi.xcertplay.media.AmbientColorSpeed
 import com.shilapi.xcertplay.media.AmbientIdleBehavior
 import com.shilapi.xcertplay.media.AmbientMusicController
 import com.shilapi.xcertplay.media.AmbientColorSource
+import com.shilapi.xcertplay.media.AmbientEffect
 import com.shilapi.xcertplay.media.AmbientMusicSettings
 import com.shilapi.xcertplay.media.MtkDecoderTuning
 import com.shilapi.xcertplay.network.CarHotspotSettings
@@ -5971,6 +5972,12 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         AmbientColorMode.SMART -> R.string.settings_ambient_mode_smart_desc
     })
 
+    private fun ambientEffectDescription(effect: AmbientEffect): String = getString(when (effect) {
+        AmbientEffect.MUSIC -> R.string.settings_ambient_effect_music_desc
+        AmbientEffect.BREATHING -> R.string.settings_ambient_effect_breathing_desc
+        AmbientEffect.METEOR -> R.string.settings_ambient_effect_meteor_desc
+    })
+
     private fun ambientBrightnessText(level: Int): String =
         if (level <= 0) getString(R.string.settings_ambient_minimum) else getString(R.string.settings_ambient_brightness_value, level)
 
@@ -5988,9 +5995,12 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         lateinit var colorGrid: AmbientSwatchGrid
         lateinit var colorHint: TextView
         lateinit var musicOptions: LinearLayout
+        lateinit var speedOptions: LinearLayout
         fun refreshAmbient() {
             behavior.text = AmbientBehaviorText.lines(this, draft).joinToString("\n") { "• $it" }
             musicOptions.visibility = if (draft.music) View.VISIBLE else View.GONE
+            // An animation runs without music, so its pace must stay reachable then.
+            speedOptions.visibility = if (draft.music || draft.effect != AmbientEffect.MUSIC) View.VISIBLE else View.GONE
             val album = draft.colorSource == AmbientColorSource.ALBUM
             colorGrid.single = !draft.music
             colorGrid.setInteractive(!album)
@@ -6024,11 +6034,28 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
             modeNote.text = ambientModeDescription(draft.colorMode)
         }
         musicOptions.addView(modeNote)
-        musicOptions.addView(space(12))
-        choice(musicOptions, getString(R.string.settings_ambient_speed), listOf(getString(R.string.settings_ambient_slow), getString(R.string.settings_ambient_standard), getString(R.string.settings_ambient_fast)), draft.speed.ordinal, reconnects = false) {
+        body.addView(musicOptions)
+        // Breathing and meteor need continuous intensity and per-zone writes, which only this head
+        // unit's lamp interface offers, so the row is not offered where it could not work.
+        if (ecarxLamps) {
+            val effectNote = label(ambientEffectDescription(draft.effect), 13, MUTED)
+            choice(body, getString(R.string.settings_ambient_effect), listOf(
+                getString(R.string.settings_ambient_music),
+                getString(R.string.settings_ambient_effect_breathing),
+                getString(R.string.settings_ambient_effect_meteor),
+            ), draft.effect.ordinal, reconnects = false) {
+                draft = draft.copy(effect = AmbientEffect.entries[it])
+                effectNote.text = ambientEffectDescription(draft.effect)
+                refreshAmbient()
+            }
+            body.addView(effectNote)
+            body.addView(space(12))
+        }
+        speedOptions = column()
+        choice(speedOptions, getString(R.string.settings_ambient_speed), listOf(getString(R.string.settings_ambient_slow), getString(R.string.settings_ambient_standard), getString(R.string.settings_ambient_fast)), draft.speed.ordinal, reconnects = false) {
             draft = draft.copy(speed = AmbientColorSpeed.entries[it])
         }
-        body.addView(musicOptions)
+        body.addView(speedOptions)
         choice(body, getString(R.string.settings_ambient_idle), listOf(getString(R.string.settings_ambient_idle_steady), getString(R.string.settings_ambient_idle_car), getString(R.string.settings_ambient_idle_off)), draft.idle.ordinal, reconnects = false) {
             draft = draft.copy(idle = AmbientIdleBehavior.entries[it])
             refreshAmbient()

@@ -23,6 +23,18 @@ class AmbientMusicSettingsTest {
         assertEquals(listOf(1), values.selectedColors)
         assertEquals(0, values.brightness)
         assertEquals(3, values.area)
+        assertEquals(AmbientEffect.MUSIC, values.effect)
+    }
+
+    @Test fun theAnimationEffectSurvivesARoundTrip() {
+        val saved = AmbientMusicSettings.load(context).copy(enabled = true, effect = AmbientEffect.METEOR)
+        AmbientMusicSettings.save(context, saved)
+        assertEquals(AmbientEffect.METEOR, AmbientMusicSettings.load(context).effect)
+    }
+
+    @Test fun anUnknownStoredEffectFallsBackToFollowingTheMusic() {
+        prefs.edit().putString("effect", "SPARKLE").commit()
+        assertEquals(AmbientEffect.MUSIC, AmbientMusicSettings.load(context).effect)
     }
 
     @Test fun oldSingleColorSettingsSupplyMissingPaletteAndModes() {

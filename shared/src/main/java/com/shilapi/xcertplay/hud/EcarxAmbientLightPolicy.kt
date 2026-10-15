@@ -2,6 +2,8 @@ package com.shilapi.xcertplay.hud
 
 import android.os.Build
 import com.shilapi.xcertplay.media.AmbientAlbumPalette
+import com.shilapi.xcertplay.media.AmbientColorSpeed
+import com.shilapi.xcertplay.media.AmbientEffect
 import kotlin.math.PI
 import kotlin.math.abs
 import kotlin.math.cos
@@ -119,6 +121,63 @@ internal object EcarxAmbientLightPolicy {
     /** Intermediate value of an eased transition, rounded to what the property accepts. */
     fun mix(from: Int, to: Int, fraction: Double): Int =
         (from + (to - from) * fraction.coerceIn(0.0, 1.0)).roundToInt()
+
+    /** Animation frames per second budget: the zone lamps sit on the vehicle bus, not a display. */
+    const val ANIMATION_FRAME_MILLIS = 100L
+
+    /** A breath never reaches zero, so the strip keeps its colour while it moves. */
+    const val BREATH_FLOOR_PERCENT = 25
+
+    /** How many zones the meteor's tail trails behind its head. */
+    const val METEOR_TAIL_ZONES = 2.0
+
+    /** One full cycle of an effect. The dialog's existing speed control sets the pace. */
+    fun effectPeriodMillis(effect: AmbientEffect, speed: AmbientColorSpeed): Long = when (effect) {
+        AmbientEffect.MUSIC -> 0L
+        AmbientEffect.BREATHING -> when (speed) {
+            AmbientColorSpeed.SLOW -> 6_000L
+            AmbientColorSpeed.STANDARD -> 3_500L
+            AmbientColorSpeed.FAST -> 1_800L
+        }
+        AmbientEffect.METEOR -> when (speed) {
+            AmbientColorSpeed.SLOW -> 3_000L
+            AmbientColorSpeed.STANDARD -> 1_600L
+            AmbientColorSpeed.FAST -> 900L
+        }
+    }
+
+    /** Breathing wave: a raised cosine, so the lamp eases at both ends of the breath. */
+    fun breathFraction(phase: Double): Double = (1 - cos(2 * PI * phase)) / 2
+
+    /** Lowest intensity a breath drops to: visible, but clearly below the target. */
+    fun floorIntensity(target: Int): Int = maxOf(1, target * BREATH_FLOOR_PERCENT / 100)
+
+    /** A breath between the floor and the music-driven target. */
+    fun breathIntensity(target: Int, phase: Double): Int =
+        mix(floorIntensity(target), target, breathFraction(phase))
+
+    /**
+     * Meteor levels at [phase] of a full sweep, one 0..1 value per zone. A head travels around the
+     * zones with a tail behind it and wraps at the end, so the sweep never stops.
+     */
+    fun meteorLevels(
+        phase: Double,
+        zones: Int = ZONE_COUNT,
+        tail: Double = METEOR_TAIL_ZONES,
+    ): List<Double> {
+        require(zones > 0) { "zones must be positive: $zones" }
+        require(tail > 0.0) { "tail must be positive: $tail" }
+        val position = (phase.mod(1.0)) * zones
+        return (0 until zones).map { zone ->
+            val direct = abs(position - zone)
+            val distance = minOf(direct, zones - direct)
+            (1.0 - distance / tail).coerceIn(0.0, 1.0)
+        }
+    }
+
+    /** A meteor zone's intensity: the head reaches the target, the tail fades to the floor. */
+    fun meteorIntensity(target: Int, level: Double): Int =
+        mix(floorIntensity(target), target, level.coerceIn(0.0, 1.0))
 
     /**
      * `getPA_*` returns the vendor's `PATypes`. Color and intensity answer with a number, but a

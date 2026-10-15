@@ -778,6 +778,12 @@
     <string name="settings_ambient_music_description">При воспроизведении следует музыке или использует постоянные цвета и яркость. Что делает подсветка, когда музыка не играет, настраивается ниже отдельно. Изменения применяются после сохранения.</string>
     <string name="settings_ambient_color_mode">Смена цвета</string>
     <string name="settings_ambient_speed">Скорость изменения яркости</string>
+    <string name="settings_ambient_effect">Анимация</string>
+    <string name="settings_ambient_effect_breathing">Дыхание</string>
+    <string name="settings_ambient_effect_meteor">Метеор</string>
+    <string name="settings_ambient_effect_music_desc">Яркость следует за музыкой.</string>
+    <string name="settings_ambient_effect_breathing_desc">Выбранные цвета «дышат» с заданной скоростью.</string>
+    <string name="settings_ambient_effect_meteor_desc">Выбранные цвета движутся по салону с заданной скоростью.</string>
     <string name="settings_ambient_behavior_title">Что происходит</string>
     <string name="settings_ambient_behavior_off">Управление выключено. Автомобиль сохраняет собственные цвета, яркость и зону подсветки.</string>
     <string name="settings_ambient_behavior_follow">Играет музыка · %1$s: подсветка следует за музыкой, до уровня %2$d.</string>

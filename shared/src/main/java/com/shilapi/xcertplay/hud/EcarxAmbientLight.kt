@@ -8,6 +8,9 @@ import android.os.IBinder
 import android.os.Looper
 import android.os.SystemClock
 import android.util.Log
+import com.shilapi.xcertplay.media.AmbientColorSpeed
+import com.shilapi.xcertplay.media.AmbientEffect
+import com.shilapi.xcertplay.media.AmbientMusicSettings
 import java.lang.reflect.Method
 import java.util.concurrent.CompletableFuture
 import java.util.concurrent.ScheduledThreadPoolExecutor
@@ -49,6 +52,16 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
 
     /** Invalidates a queued transition when a stop, close or newer target arrives. */
     private var rampGeneration = 0
+
+    /** Own-clock animation state; [MUSIC] means the lamps follow the music instead. */
+    private var animationGeneration = 0
+    private var animationScheduledGeneration = -1
+    private var animationStartedAt = 0L
+    private var animationEffect = AmbientEffect.MUSIC
+    private var animationPeriodMillis = 0L
+    private var animationBase = Lamp(0, 0)
+    private var animationZoneColor: Int? = null
+    private val shownZoneIntensity = IntArray(EcarxAmbientLightPolicy.ZONE_COUNT) { UNREADABLE }
 
     /** The two values a transition moves between. */
     private data class Lamp(val color: Int, val intensity: Int)
@@ -108,19 +121,14 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
                 check(phase == Phase.ACTIVE) { "ambient-session-not-active" }
                 val manager = manager()
                 val values = EcarxAmbientLightPolicy.valuesFor(color, brightness)
-                // The product only offers six levels; easing between them in the 0..255 domain is what
-                // stops the lamps jumping. `shown` is what is actually on the strip right now.
-                val from = shown ?: Lamp(values.color, values.intensity)
-                val to = Lamp(values.color, values.intensity)
-                if (from == to) {
-                    shown = to
-                    future.complete(Unit)
-                    return@execute
+                // The animation settings are read per frame so a change applies without a reconnect.
+                val settings = AmbientMusicSettings.load(app)
+                if (settings.effect == AmbientEffect.MUSIC) {
+                    stopAnimation()
+                    startTransition(manager, values, future)
+                } else {
+                    startAnimation(manager, settings.effect, settings.speed, values, future)
                 }
-                val generation = ++rampGeneration
-                val total = EcarxAmbientLightPolicy.rampMillis(from.intensity, to.intensity)
-                Log.i(TAG, "lamp ramp intensity ${from.intensity}->${to.intensity} color=${to.color} in ${total}ms")
-                stepRamp(manager, from, to, generation, 1, total, future)
             } catch (error: Throwable) {
                 if (phase == Phase.ACTIVE) phase = Phase.FAILED
                 Log.w(TAG, "lamp apply failed", error)
@@ -128,6 +136,112 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
             }
         }
         return future
+    }
+
+    /**
+     * The product only offers six brightness levels, so a transition eases between them in the 0..255
+     * domain; the step between two levels is what would otherwise read as a snap.
+     */
+    private fun startTransition(manager: Any, values: EcarxAmbientLightPolicy.Values, future: CompletableFuture<Unit>) {
+        val from = shown ?: Lamp(values.color, values.intensity)
+        val to = Lamp(values.color, values.intensity)
+        if (from == to) {
+            shown = to
+            future.complete(Unit)
+            return
+        }
+        val generation = ++rampGeneration
+        val total = EcarxAmbientLightPolicy.rampMillis(from.intensity, to.intensity)
+        Log.i(TAG, "lamp ramp intensity ${from.intensity}->${to.intensity} color=${to.color} in ${total}ms")
+        stepRamp(manager, from, to, generation, 1, total, future)
+    }
+
+    /**
+     * Starts or updates an animation that runs on its own clock, so it keeps moving without music and
+     * keeps looking the same whether or not a frame happens to arrive. The colour still comes from the
+     * settings (palette or artwork), and the music-driven level stays the animation's peak.
+     */
+    private fun startAnimation(
+        manager: Any,
+        effect: AmbientEffect,
+        speed: AmbientColorSpeed,
+        values: EcarxAmbientLightPolicy.Values,
+        future: CompletableFuture<Unit>,
+    ) {
+        val period = EcarxAmbientLightPolicy.effectPeriodMillis(effect, speed)
+        val restart = effect != animationEffect || period != animationPeriodMillis
+        animationEffect = effect
+        animationPeriodMillis = period
+        animationBase = Lamp(values.color, values.intensity)
+        if (restart) {
+            Log.i(TAG, "lamp animation ${effect.name.lowercase()} period=${period}ms color=${values.color}")
+            animationGeneration++
+            animationStartedAt = SystemClock.uptimeMillis()
+            shownZoneIntensity.fill(UNREADABLE)
+        }
+        if (effect == AmbientEffect.METEOR) ensureAnimationZones(manager, values.color)
+        writeAnimationFrame(manager, animationGeneration)
+        future.complete(Unit)
+        scheduleAnimationFrame(manager, animationGeneration)
+    }
+
+    /** The meteor needs every zone switched on and coloured once; only intensities move afterwards. */
+    private fun ensureAnimationZones(manager: Any, color: Int) {
+        if (animationZoneColor == color) return
+        for (zone in 1..EcarxAmbientLightPolicy.ZONE_COUNT) {
+            invokeInt(manager, "CB_Zone${zone}StatusSettings", ON)
+            invokeInt(manager, "CB_Zone${zone}ColorSettings", color)
+        }
+        animationZoneColor = color
+        shownZoneIntensity.fill(UNREADABLE)
+    }
+
+    private fun scheduleAnimationFrame(manager: Any, generation: Int) {
+        if (animationScheduledGeneration == generation) return
+        animationScheduledGeneration = generation
+        try {
+            executor.schedule({
+                if (closed || generation != animationGeneration) return@schedule
+                if (phase == Phase.ACTIVE) writeAnimationFrame(manager, generation)
+                scheduleAnimationFrame(manager, generation)
+            }, EcarxAmbientLightPolicy.ANIMATION_FRAME_MILLIS, TimeUnit.MILLISECONDS)
+        } catch (error: Throwable) {
+            Log.w(TAG, "lamp animation stopped", error)
+        }
+    }
+
+    /** Writes one animation frame from the elapsed time, so a late frame does not distort the motion. */
+    private fun writeAnimationFrame(manager: Any, generation: Int) {
+        if (generation != animationGeneration || phase != Phase.ACTIVE) return
+        val period = animationPeriodMillis
+        val phase = if (period <= 0L) 0.0
+        else ((SystemClock.uptimeMillis() - animationStartedAt) % period).toDouble() / period
+        when (animationEffect) {
+            AmbientEffect.MUSIC -> Unit
+            AmbientEffect.BREATHING -> {
+                val intensity = EcarxAmbientLightPolicy.breathIntensity(animationBase.intensity, phase)
+                writeZoneAll(manager, animationBase.color, intensity, writeColor = false)
+                shown = Lamp(animationBase.color, intensity)
+            }
+            AmbientEffect.METEOR -> {
+                EcarxAmbientLightPolicy.meteorLevels(phase).forEachIndexed { index, level ->
+                    val intensity = EcarxAmbientLightPolicy.meteorIntensity(animationBase.intensity, level)
+                    if (shownZoneIntensity[index] != intensity) {
+                        invokeInt(manager, "CB_Zone${index + 1}IntensitySettings", intensity)
+                        shownZoneIntensity[index] = intensity
+                    }
+                }
+                shown = Lamp(animationBase.color, animationBase.intensity)
+            }
+        }
+    }
+
+    private fun stopAnimation() {
+        animationGeneration++
+        animationEffect = AmbientEffect.MUSIC
+        animationPeriodMillis = 0L
+        animationZoneColor = null
+        shownZoneIntensity.fill(UNREADABLE)
     }
 
     /**
@@ -178,6 +292,7 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
     /** Writes the snapshot back. Restoration is never coalesced, matching the BYD session contract. */
     fun stop(): CompletableFuture<Unit> = submit {
         rampGeneration++
+        stopAnimation()
         shown = null
         if (phase != Phase.ACTIVE) {
             phase = Phase.IDLE
@@ -205,6 +320,7 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
     override fun close() {
         if (closed) return
         rampGeneration++
+        stopAnimation()
         closed = true
         phase = Phase.CLOSED
         runCatching { car?.let { invokeNoArg(it, "disconnect") } }

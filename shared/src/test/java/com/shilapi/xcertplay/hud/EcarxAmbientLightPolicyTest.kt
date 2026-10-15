@@ -1,6 +1,8 @@
 package com.shilapi.xcertplay.hud
 
 import com.shilapi.xcertplay.media.AmbientAlbumPalette
+import com.shilapi.xcertplay.media.AmbientColorSpeed
+import com.shilapi.xcertplay.media.AmbientEffect
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
@@ -114,6 +116,69 @@ class EcarxAmbientLightPolicyTest {
         // Clamped, so a caller cannot overshoot the property range.
         assertEquals(0, EcarxAmbientLightPolicy.mix(0, 255, -1.0))
         assertEquals(255, EcarxAmbientLightPolicy.mix(0, 255, 2.0))
+    }
+
+    @Test fun aBreathRisesAndFallsWithZeroSlopeAtBothEnds() {
+        assertEquals(0.0, EcarxAmbientLightPolicy.breathFraction(0.0), 0.0001)
+        assertEquals(1.0, EcarxAmbientLightPolicy.breathFraction(0.5), 0.0001)
+        assertEquals(0.0, EcarxAmbientLightPolicy.breathFraction(1.0), 0.0001)
+        // Symmetric about the top of the breath.
+        assertEquals(
+            EcarxAmbientLightPolicy.breathFraction(0.25),
+            1 - EcarxAmbientLightPolicy.breathFraction(0.75),
+            0.0001,
+        )
+    }
+
+    @Test fun aBreathNeverGoesDarkAndNeverExceedsTheTarget() {
+        val target = 200
+        val floor = EcarxAmbientLightPolicy.floorIntensity(target)
+        assertEquals(50, floor)
+        val values = (0..10).map { EcarxAmbientLightPolicy.breathIntensity(target, it / 10.0) }
+        assertTrue("stays between the floor and the target: $values", values.all { it in floor..target })
+        assertEquals(floor, values.first())
+        assertEquals(target, values[5])
+        assertEquals(floor, values.last())
+        assertTrue("even a tiny target stays visible", EcarxAmbientLightPolicy.floorIntensity(1) >= 1)
+    }
+
+    @Test fun theMeteorHeadTravelsWithATailAndWraps() {
+        val start = EcarxAmbientLightPolicy.meteorLevels(0.0)
+        assertEquals(EcarxAmbientLightPolicy.ZONE_COUNT, start.size)
+        assertEquals(1.0, start[0], 0.0001)
+        assertTrue("the tail follows the head: $start", start[1] < start[0] && start[1] > 0.0)
+        // The head sits on the first zone, so the last zone holds the other half of the tail.
+        assertEquals(start[1], start[4], 0.0001)
+        val middle = EcarxAmbientLightPolicy.meteorLevels(0.5)
+        assertTrue("the head moved: $middle", middle[2] > middle[0])
+        assertTrue((start + middle).all { it in 0.0..1.0 })
+        // A full cycle is the same frame again, so the sweep loops without a jump.
+        assertEquals(start, EcarxAmbientLightPolicy.meteorLevels(1.0))
+    }
+
+    @Test fun aMeteorZoneStaysBetweenTheFloorAndTheTarget() {
+        val target = 255
+        val floor = EcarxAmbientLightPolicy.floorIntensity(target)
+        assertEquals(floor, EcarxAmbientLightPolicy.meteorIntensity(target, 0.0))
+        assertEquals(target, EcarxAmbientLightPolicy.meteorIntensity(target, 1.0))
+        assertEquals(target, EcarxAmbientLightPolicy.meteorIntensity(target, 4.0))
+        assertEquals(floor, EcarxAmbientLightPolicy.meteorIntensity(target, -2.0))
+    }
+
+    @Test fun theEffectPeriodFollowsTheSpeedAndMusicHasNone() {
+        assertEquals(0L, EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.MUSIC, AmbientColorSpeed.STANDARD))
+        listOf(AmbientEffect.BREATHING, AmbientEffect.METEOR).forEach { effect ->
+            val slow = EcarxAmbientLightPolicy.effectPeriodMillis(effect, AmbientColorSpeed.SLOW)
+            val standard = EcarxAmbientLightPolicy.effectPeriodMillis(effect, AmbientColorSpeed.STANDARD)
+            val fast = EcarxAmbientLightPolicy.effectPeriodMillis(effect, AmbientColorSpeed.FAST)
+            assertTrue("$effect must speed up: $slow/$standard/$fast", slow > standard && standard > fast)
+            assertTrue("a frame every ${fast}ms still leaves room: $fast", fast >= 500L)
+        }
+        assertTrue(
+            "a breath is slower than a sweep",
+            EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.BREATHING, AmbientColorSpeed.STANDARD) >
+                EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.METEOR, AmbientColorSpeed.STANDARD),
+        )
     }
 
     @Test fun aDataValueIsReadFromTheVendorToString() {

@@ -767,6 +767,12 @@
     <string name="settings_ambient_music_description">播放时随音乐变化；关闭律动则使用固定颜色和亮度。没有音乐播放时的灯光效果在下方单独设置，保存后生效。</string>
     <string name="settings_ambient_color_mode">颜色变化方式</string>
     <string name="settings_ambient_speed">亮度过渡速度</string>
+    <string name="settings_ambient_effect">动画</string>
+    <string name="settings_ambient_effect_breathing">呼吸</string>
+    <string name="settings_ambient_effect_meteor">流星</string>
+    <string name="settings_ambient_effect_music_desc">亮度跟着音乐变化。</string>
+    <string name="settings_ambient_effect_breathing_desc">所选颜色按设定速度呼吸。</string>
+    <string name="settings_ambient_effect_meteor_desc">所选颜色按设定速度在车内流动。</string>
     <string name="settings_ambient_behavior_title">运作方式</string>
     <string name="settings_ambient_behavior_off">控制已关闭。车辆保持自己的灯光颜色、亮度和区域。</string>
     <string name="settings_ambient_behavior_follow">播放音乐时 · %1$s：灯光跟随音乐变化，最高到%2$d档。</string>

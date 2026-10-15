@@ -790,6 +790,12 @@
     <string name="settings_ambient_music_description">Під час відтворення слідує музиці або використовує постійні кольори та яскравість. Що робить підсвічування, коли музика не грає, налаштовується нижче окремо. Зміни застосовуються після збереження.</string>
     <string name="settings_ambient_color_mode">Зміна кольору</string>
     <string name="settings_ambient_speed">Швидкість зміни яскравості</string>
+    <string name="settings_ambient_effect">Анімація</string>
+    <string name="settings_ambient_effect_breathing">Дихання</string>
+    <string name="settings_ambient_effect_meteor">Метеор</string>
+    <string name="settings_ambient_effect_music_desc">Яскравість слідує за музикою.</string>
+    <string name="settings_ambient_effect_breathing_desc">Вибрані кольори «дихають» із заданою швидкістю.</string>
+    <string name="settings_ambient_effect_meteor_desc">Вибрані кольори рухаються салоном із заданою швидкістю.</string>
     <string name="settings_ambient_behavior_title">Що відбувається</string>
     <string name="settings_ambient_behavior_off">Керування вимкнено. Автомобіль зберігає власні кольори, яскравість і зону підсвічування.</string>
     <string name="settings_ambient_behavior_follow">Грає музика · %1$s: підсвічування слідує за музикою, до рівня %2$d.</string>

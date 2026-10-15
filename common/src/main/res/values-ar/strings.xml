@@ -778,6 +778,12 @@
     <string name="settings_ambient_music_description">أثناء التشغيل تتبع الموسيقى أو تستخدم ألوانًا وسطوعًا ثابتين. ما تفعله الإضاءة عند عدم تشغيل موسيقى يُضبط بشكل منفصل أدناه. تُطبق التغييرات بعد الحفظ.</string>
     <string name="settings_ambient_color_mode">تغييرات اللون</string>
     <string name="settings_ambient_speed">سرعة انتقال السطوع</string>
+    <string name="settings_ambient_effect">حركة</string>
+    <string name="settings_ambient_effect_breathing">تنفّس</string>
+    <string name="settings_ambient_effect_meteor">شهاب</string>
+    <string name="settings_ambient_effect_music_desc">يتبع السطوع الموسيقى.</string>
+    <string name="settings_ambient_effect_breathing_desc">تتنفّس الألوان المختارة بالسرعة المحددة.</string>
+    <string name="settings_ambient_effect_meteor_desc">تنتقل الألوان المختارة حول المقصورة بالسرعة المحددة.</string>
     <string name="settings_ambient_behavior_title">ماذا يحدث</string>
     <string name="settings_ambient_behavior_off">التحكم متوقف. تحتفظ السيارة بألوان الإضاءة وسطوعها ومنطقتها الخاصة.</string>
     <string name="settings_ambient_behavior_follow">أثناء تشغيل الموسيقى · %1$s: تتبع الإضاءة الموسيقى حتى المستوى %2$d.</string>

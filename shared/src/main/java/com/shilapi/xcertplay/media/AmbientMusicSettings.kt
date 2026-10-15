@@ -8,7 +8,8 @@ object AmbientMusicSettings {
         val colorMode: AmbientColorMode = AmbientColorMode.BEAT,
         val speed: AmbientColorSpeed = AmbientColorSpeed.STANDARD, val selectedColors: List<Int> = listOf(1), val colorCycle: Boolean = false, val color: Int = 1, val brightness: Int = 0, val area: Int = 3,
         val colorSource: AmbientColorSource = AmbientColorSource.SELECTED,
-        val idle: AmbientIdleBehavior = AmbientIdleBehavior.STEADY)
+        val idle: AmbientIdleBehavior = AmbientIdleBehavior.STEADY,
+        val effect: AmbientEffect = AmbientEffect.MUSIC)
     fun load(context: Context): Values {
         val p = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         fun boolean(key: String, fallback: Boolean) = runCatching { p.getBoolean(key, fallback) }.getOrDefault(fallback)
@@ -28,6 +29,7 @@ object AmbientMusicSettings {
             area = integer("area", 3).coerceIn(1, 3),
             colorSource = runCatching { AmbientColorSource.valueOf(text("colorSource", "SELECTED")) }.getOrDefault(AmbientColorSource.SELECTED),
                         idle = runCatching { AmbientIdleBehavior.valueOf(text("idle", "STEADY")) }.getOrDefault(AmbientIdleBehavior.STEADY),
+            effect = runCatching { AmbientEffect.valueOf(text("effect", "MUSIC")) }.getOrDefault(AmbientEffect.MUSIC),
                     )
     }
     fun save(context: Context, values: Values) {
@@ -36,6 +38,7 @@ object AmbientMusicSettings {
             .putBoolean("colorCycle", values.colorCycle).putString("colorMode", values.colorMode.name)
             .putString("speed", values.speed.name).putString("colorSource", values.colorSource.name)
             .putString("idle", values.idle.name)
+            .putString("effect", values.effect.name)
             .putStringSet("selectedColors", normalizeAmbientPalette(values.selectedColors, values.color).map { it.toString() }.toSet())
             .putInt("color", values.color.coerceIn(1, 31))
             .putInt("brightness", values.brightness.coerceIn(0, 6))

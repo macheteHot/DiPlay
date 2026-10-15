@@ -344,6 +344,58 @@ cluster surface 1920x720 / cluster stream active=true
 ```
 **本机「CarPlay 画面投仪表」可用**。安全区/marker 设置照旧用于避开车机自身读数。
 
+## 十一、投影被原厂地图抢走后不自动回来（2026-10-15 定位并修复）
+
+### 11.1 症状
+
+方向盘上的地图键把**原厂地图**（`com.geely.map`）唤醒后，仪表上正在显示的 CarPlay 画面被顶掉；
+把原厂地图关掉，CarPlay 也**不会回来**（仪表保持没有投影的状态）。
+
+### 11.2 根因
+
+`notifyDimProjectScreenSwitch` 这个投影开关是**车机全局的**，DiPlay 和原厂地图**共用**它
+（原厂地图走 `SomeIPUtils.Navi.sendScreenAreaAndResultInfo(naviDisplayArea=1)`，同一个开关）。
+而 DiPlay 只在 `Presentation` 启停时各断言一次：
+
+| 位置 | 行为 |
+| --- | --- |
+| `ClusterMapPresentation.onStart()` | `GeelyClusterProjection.set(true)` |
+| `ClusterMapPresentation.onStop()` | `GeelyClusterProjection.set(false)` |
+
+实测时间线（一次真实抢占）：
+
+```text
+22:44:24  lynkPlay-Cluster: dim projection: notifyDimProjectScreenSwitch(true) ok   # 我们开投影
+22:45:43  DimNaviService: updateNavigationTurnIdFun / updateETAFun ...
+          DimNaviService: notifyNavigationStatusFun s_naviStatus:5                  # 原厂导航会话收尾
+22:45:45  DimNaviService: notifyDimProjectScreenSwitchFun turnId(false)             # 开关被第三方关掉
+22:46:29  lynkPlay-Cluster: cluster stream active=false                             # 我们只看到码流停，Presentation 没 stop
+```
+
+于是 `onStart` 不会再触发，开关永远停在 off。且这条路**没有可依附的事件**：
+
+1. DIM 投影是车机/QNX 侧开关，**不会**产生 Android display 回调（`onDisplayChanged` 收不到）。
+2. 那个方向盘地图键**不进 DiPlay**（`GeelyWheelKeys` 只订阅媒体键与麦克风键），没有键事件可挂钩。
+
+### 11.3 修复
+
+| 文件 | 改动 |
+| --- | --- |
+| `common/.../GeelyClusterProjection.kt` | 新增 `status()`：事务码 10 `getDimProjectScreenStatus`，返回 `Boolean?`（读不到 = null） |
+| `common/.../ClusterProjectionWatchdog.kt`（新增） | 判定策略：**连续两次**读到 off 才要求重夺；读到 on（原厂地图正当占用）或 null（读不到）一律不动 |
+| `common/.../ClusterMapPresentation.kt` | `onStart` 起一个 `PROJECTION_TICK_MILLIS`（2 s）的 tick，判定被抢走就重新 `set(true)`；`onStop` 停 tick |
+
+行为：原厂地图占用期间开关是 on，DiPlay 不干预；原厂地图退出关掉开关后，DiPlay 最迟约 4 s 内把投影夺回。
+两个 off 读数是为了避开原厂地图切换过程中短暂经过 off 的瞬间，避免两边互相抢。
+
+`getDimProjectScreenStatus` 也可直接用 adb 只读复核（`service call` 不带接口 token，本服务接受）：
+
+```sh
+adb shell 'service call DimNaviService 10'      # Result: Parcel(00000000 00000001 ...) → 0=异常码 1=投影ON
+```
+
+测试：`common/src/test/.../ClusterProjectionWatchdogTest.kt`。
+
 
 
 

@@ -14,6 +14,8 @@ import android.view.WindowManager
 import android.graphics.Point
 import android.hardware.display.DisplayManager
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.util.Log
 import android.view.Display
 import android.view.Gravity
@@ -51,6 +53,18 @@ internal class ClusterMapPresentation(
         private set
     var mapVisible = true
         private set
+
+    private val projectionHandler = Handler(Looper.getMainLooper())
+    private val projectionWatchdog = ClusterProjectionWatchdog()
+    private val projectionTick = object : Runnable {
+        override fun run() {
+            if (projectionWatchdog.onStatus(GeelyClusterProjection.status())) {
+                Log.i(TAG, "cluster projection was taken away; asking for it again")
+                GeelyClusterProjection.set(true)
+            }
+            projectionHandler.postDelayed(this, PROJECTION_TICK_MILLIS)
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -155,11 +169,22 @@ internal class ClusterMapPresentation(
         super.onStart()
         // On the Geely head unit the cluster keeps its factory layer over Android's display 2
         // until the DIM service is asked to project; the stock map does the same.
-        if (GeelyClusterDisplay.supported()) GeelyClusterProjection.set(true)
+        if (!GeelyClusterDisplay.supported()) return
+        GeelyClusterProjection.set(true)
+        // That switch belongs to the head unit, not to DiPlay: waking the stock map moves the
+        // projection there and its session end turns the switch off, with no display callback and
+        // no onStop here to notice. Watch the state for as long as this presentation is up.
+        projectionWatchdog.reset()
+        projectionHandler.removeCallbacks(projectionTick)
+        projectionHandler.postDelayed(projectionTick, PROJECTION_TICK_MILLIS)
     }
 
     override fun onStop() {
-        if (GeelyClusterDisplay.supported()) GeelyClusterProjection.set(false)
+        if (GeelyClusterDisplay.supported()) {
+            projectionHandler.removeCallbacks(projectionTick)
+            projectionWatchdog.reset()
+            GeelyClusterProjection.set(false)
+        }
         super.onStop()
     }
 
@@ -211,6 +236,12 @@ internal class ClusterMapPresentation(
 
     companion object {
         const val TAG = "lynkPlay-Cluster"
+
+        /**
+         * How often the Geely projection state is read. One binder transaction, and the watchdog needs
+         * two off readings anyway, so the cluster is back within ~4 s of the stock map releasing it.
+         */
+        const val PROJECTION_TICK_MILLIS = 2_000L
 
         /** Keep the 5/5.1 selection order, then try the measured DiLink 4 projection display. */
         fun findDisplay(context: Context, theme: DiLink51ClusterLayout.Theme = DiLink51ClusterLayout.theme(context)): Display? {

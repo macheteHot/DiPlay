@@ -14,7 +14,8 @@ import android.util.Log
  * `Presentation` on the cluster display stays invisible behind the factory dials.
  *
  * <p>Only the Geely device takes this route; everywhere else the cluster projection is driven by
- * the car's own cluster support.
+ * the car's own cluster support. The switch is head-unit-wide and shared with the stock map, so the
+ * state is read back as well ([status]) and re-asserted when the map hands it back.
  */
 internal object GeelyClusterProjection {
 
@@ -22,6 +23,32 @@ internal object GeelyClusterProjection {
     private const val SERVICE = "DimNaviService"
     private const val DESCRIPTOR = "ecarx.dimprotocol.custom.service.IDimNaviService"
     private const val NOTIFY_PROJECT_SCREEN_SWITCH = 9
+    private const val GET_PROJECT_SCREEN_STATUS = 10
+
+    /**
+     * Reads the head unit's projection state, or null when the answer cannot be obtained (service not
+     * registered, transaction refused). The state is head-unit-wide: the stock map drives the same
+     * switch, so an off reading while DiPlay's presentation is up means the map took it away and the
+     * cluster is dark (see [ClusterProjectionWatchdog]).
+     */
+    fun status(): Boolean? {
+        val binder = service() ?: return null
+        val data = Parcel.obtain()
+        val reply = Parcel.obtain()
+        return try {
+            data.writeInterfaceToken(DESCRIPTOR)
+            binder.transact(GET_PROJECT_SCREEN_STATUS, data, reply, 0)
+            reply.readException()
+            reply.readInt() != 0
+        } catch (error: Throwable) {
+            // Polled, so a failure is logged but never treated as "off": the watchdog acts on evidence.
+            Log.w(TAG, "dim projection: getDimProjectScreenStatus() failed", error)
+            null
+        } finally {
+            reply.recycle()
+            data.recycle()
+        }
+    }
 
     /**
      * Asks the head unit to show (or stop showing) the projected cluster. Returns whether the

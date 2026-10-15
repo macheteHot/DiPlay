@@ -44,6 +44,15 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
     private var restore: EcarxAmbientLightPolicy.Snapshot? = null
     private var readsForDiagnostics = 0
 
+    /** What the strip is showing right now, so the next transition starts from it rather than jumping. */
+    private var shown: Lamp? = null
+
+    /** Invalidates a queued transition when a stop, close or newer target arrives. */
+    private var rampGeneration = 0
+
+    /** The two values a transition moves between. */
+    private data class Lamp(val color: Int, val intensity: Int)
+
     /** The vendored class binds itself; the connection must stay referenced for the bind to survive. */
     private val connection = object : ServiceConnection {
         override fun onServiceConnected(name: ComponentName?, service: IBinder?) {
@@ -81,22 +90,95 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         restore = snapshot
         phase = Phase.ACTIVE
         readsForDiagnostics = 0
+        // The first transition eases in from what the car was showing, instead of snapping to ours.
+        shown = Lamp(snapshot.all.color, snapshot.all.intensity)
+        rampGeneration++
         snapshot
     }
 
     /** One music frame. The area is deliberately ignored; see [EcarxAmbientLightPolicy.valuesFor]. */
-    fun apply(area: Int, color: Int, brightness: Int): CompletableFuture<Unit> = submit {
-        check(phase == Phase.ACTIVE) { "ambient-session-not-active" }
-        val manager = manager()
-        val values = EcarxAmbientLightPolicy.valuesFor(color, brightness)
-        invokeInt(manager, "CB_ZoneAllStatusSettings", ON)
-        invokeInt(manager, "CB_ZoneAllColorSettings", values.color)
-        invokeInt(manager, "CB_ZoneAllIntensitySettings", values.intensity)
-        logReadBack(manager)
+    fun apply(area: Int, color: Int, brightness: Int): CompletableFuture<Unit> {
+        val future = CompletableFuture<Unit>()
+        if (closed) {
+            future.completeExceptionally(IllegalStateException("client-closed"))
+            return future
+        }
+        executor.execute {
+            try {
+                check(phase == Phase.ACTIVE) { "ambient-session-not-active" }
+                val manager = manager()
+                val values = EcarxAmbientLightPolicy.valuesFor(color, brightness)
+                // The product only offers six levels; easing between them in the 0..255 domain is what
+                // stops the lamps jumping. `shown` is what is actually on the strip right now.
+                val from = shown ?: Lamp(values.color, values.intensity)
+                val to = Lamp(values.color, values.intensity)
+                if (from == to) {
+                    shown = to
+                    future.complete(Unit)
+                    return@execute
+                }
+                val generation = ++rampGeneration
+                val total = EcarxAmbientLightPolicy.rampMillis(from.intensity, to.intensity)
+                Log.i(TAG, "lamp ramp intensity ${from.intensity}->${to.intensity} color=${to.color} in ${total}ms")
+                stepRamp(manager, from, to, generation, 1, total, future)
+            } catch (error: Throwable) {
+                if (phase == Phase.ACTIVE) phase = Phase.FAILED
+                Log.w(TAG, "lamp apply failed", error)
+                future.completeExceptionally(error)
+            }
+        }
+        return future
+    }
+
+    /**
+     * Writes one point of an eased transition, then schedules the next. The future completes on the
+     * last step, so the session never starts a second transition on top of this one.
+     */
+    private fun stepRamp(
+        manager: Any,
+        from: Lamp,
+        to: Lamp,
+        generation: Int,
+        step: Int,
+        totalMillis: Long,
+        future: CompletableFuture<Unit>,
+    ) {
+        val fraction = EcarxAmbientLightPolicy.ease(step)
+        val last = step >= EcarxAmbientLightPolicy.RAMP_STEPS
+        val color = if (last) to.color else EcarxAmbientLightPolicy.mix(from.color, to.color, fraction)
+        val intensity = if (last) to.intensity else EcarxAmbientLightPolicy.mix(from.intensity, to.intensity, fraction)
+        writeZoneAll(manager, color, intensity, writeColor = from.color != to.color || last)
+        if (last) {
+            shown = to
+            logReadBack(manager)
+            future.complete(Unit)
+            return
+        }
+        val delay = totalMillis / EcarxAmbientLightPolicy.RAMP_STEPS
+        try {
+            executor.schedule({
+                // stop()/close() bump the generation so a queued point cannot undo a restore.
+                if (closed || generation != rampGeneration || phase != Phase.ACTIVE) {
+                    future.completeExceptionally(IllegalStateException("ramp-cancelled"))
+                    return@schedule
+                }
+                try {
+                    stepRamp(manager, from, to, generation, step + 1, totalMillis, future)
+                } catch (error: Throwable) {
+                    if (phase == Phase.ACTIVE) phase = Phase.FAILED
+                    Log.w(TAG, "lamp ramp failed", error)
+                    future.completeExceptionally(error)
+                }
+            }, delay, TimeUnit.MILLISECONDS)
+        } catch (error: Throwable) {
+            future.completeExceptionally(error)
+        }
     }
 
     /** Writes the snapshot back. Restoration is never coalesced, matching the BYD session contract. */
     fun stop(): CompletableFuture<Unit> = submit {
+        rampGeneration++
+        shown = null
         if (phase != Phase.ACTIVE) {
             phase = Phase.IDLE
             return@submit
@@ -122,6 +204,7 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
 
     override fun close() {
         if (closed) return
+        rampGeneration++
         closed = true
         phase = Phase.CLOSED
         runCatching { car?.let { invokeNoArg(it, "disconnect") } }
@@ -211,6 +294,13 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         val field = runCatching { result.javaClass.getField("dataValue").get(result) }.getOrNull()
             ?: runCatching { result.javaClass.getMethod("getDataValue").invoke(result) }.getOrNull()
         return field?.toString() ?: result.toString()
+    }
+
+    /** One point of a transition: the strip follows the color only when it is changing. */
+    private fun writeZoneAll(manager: Any, color: Int, intensity: Int, writeColor: Boolean) {
+        invokeInt(manager, "CB_ZoneAllStatusSettings", ON)
+        if (writeColor) invokeInt(manager, "CB_ZoneAllColorSettings", color)
+        invokeInt(manager, "CB_ZoneAllIntensitySettings", intensity)
     }
 
     /** A rare read-back so a silently ignored write is visible in a report, without failing the apply. */

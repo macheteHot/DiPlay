@@ -83,6 +83,39 @@ class EcarxAmbientLightPolicyTest {
         assertEquals(List(6) { snapshot.all }, steps.map { it.second })
     }
 
+    @Test fun anEasedTransitionStartsAndEndsAtZeroSlope() {
+        assertEquals(0.0, EcarxAmbientLightPolicy.ease(0), 0.0001)
+        assertEquals(1.0, EcarxAmbientLightPolicy.ease(EcarxAmbientLightPolicy.RAMP_STEPS), 0.0001)
+        val steps = (1..EcarxAmbientLightPolicy.RAMP_STEPS).map { EcarxAmbientLightPolicy.ease(it) }
+        assertEquals("monotonic", steps, steps.sorted())
+        assertEquals(0.5, EcarxAmbientLightPolicy.ease(EcarxAmbientLightPolicy.RAMP_STEPS / 2), 0.0001)
+        // The first step is small, which is what stops the six-level scale snapping.
+        assertTrue("first step must be gentle: ${steps.first()}", steps.first() < 0.2)
+        assertEquals(0.0, EcarxAmbientLightPolicy.ease(-3), 0.0001)
+        assertEquals(1.0, EcarxAmbientLightPolicy.ease(99), 0.0001)
+    }
+
+    @Test fun aSmallCorrectionRampsFasterThanAFullSweep() {
+        val small = EcarxAmbientLightPolicy.rampMillis(150, 160)
+        val full = EcarxAmbientLightPolicy.rampMillis(0, EcarxAmbientLightPolicy.MAX_INTENSITY)
+        assertTrue("$small must be shorter than $full", small < full)
+        assertTrue(small >= EcarxAmbientLightPolicy.MIN_RAMP_MILLIS)
+        assertTrue(full <= EcarxAmbientLightPolicy.MIN_RAMP_MILLIS + EcarxAmbientLightPolicy.EXTRA_RAMP_MILLIS)
+        assertTrue("even an unchanged target takes some time", EcarxAmbientLightPolicy.rampMillis(20, 20) >= 90L)
+    }
+
+    @Test fun anIntermediateValueStaysBetweenItsEnds() {
+        assertEquals(0, EcarxAmbientLightPolicy.mix(0, 255, 0.0))
+        assertEquals(255, EcarxAmbientLightPolicy.mix(0, 255, 1.0))
+        assertEquals(128, EcarxAmbientLightPolicy.mix(0, 255, 0.5))
+        assertEquals(200, EcarxAmbientLightPolicy.mix(200, 100, 0.0))
+        assertEquals(100, EcarxAmbientLightPolicy.mix(200, 100, 1.0))
+        assertEquals(150, EcarxAmbientLightPolicy.mix(200, 100, 0.5))
+        // Clamped, so a caller cannot overshoot the property range.
+        assertEquals(0, EcarxAmbientLightPolicy.mix(0, 255, -1.0))
+        assertEquals(255, EcarxAmbientLightPolicy.mix(0, 255, 2.0))
+    }
+
     @Test fun aDataValueIsReadFromTheVendorToString() {
         assertEquals(
             16742655,

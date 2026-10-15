@@ -2,6 +2,10 @@ package com.shilapi.xcertplay.hud
 
 import android.os.Build
 import com.shilapi.xcertplay.media.AmbientAlbumPalette
+import kotlin.math.PI
+import kotlin.math.abs
+import kotlin.math.cos
+import kotlin.math.roundToInt
 
 /**
  * Pure rules for driving the Geely / Lynk & Co (ECARX) interior lamps from DiPlay's ambient settings.
@@ -84,6 +88,37 @@ internal object EcarxAmbientLightPolicy {
         snapshot.zones.forEachIndexed { index, zone -> steps += Triple(index + 1, zone, false) }
         return steps
     }
+
+    /**
+     * Steps per eased transition. The zone lamps are driven over the vehicle bus, so a transition is
+     * a handful of writes rather than a stream: the product hands over a level every ~200 ms, and
+     * easing between those levels is what removes the visible steps.
+     */
+    const val RAMP_STEPS = 4
+
+    /** Shortest and longest transition. Small corrections stay quick so the lamps still follow the music. */
+    const val MIN_RAMP_MILLIS = 90L
+    const val EXTRA_RAMP_MILLIS = 130L
+
+    /**
+     * Eased fraction of a transition at [step] of [RAMP_STEPS]: a raised cosine, so the change starts
+     * and ends at zero slope. That is the "sine" shape - a linear ramp still reads as a snap at both
+     * ends, and the stock six-level scale only ever offered those ends.
+     */
+    fun ease(step: Int): Double {
+        val t = (step.toDouble() / RAMP_STEPS).coerceIn(0.0, 1.0)
+        return (1 - cos(PI * t)) / 2
+    }
+
+    /** A bigger jump takes a little longer, so a full-range change does not snap either. */
+    fun rampMillis(fromIntensity: Int, toIntensity: Int): Long {
+        val distance = abs(toIntensity - fromIntensity).toDouble() / MAX_INTENSITY
+        return (MIN_RAMP_MILLIS + distance * EXTRA_RAMP_MILLIS).toLong()
+    }
+
+    /** Intermediate value of an eased transition, rounded to what the property accepts. */
+    fun mix(from: Int, to: Int, fraction: Double): Int =
+        (from + (to - from) * fraction.coerceIn(0.0, 1.0)).roundToInt()
 
     /**
      * `getPA_*` returns the vendor's `PATypes`. Color and intensity answer with a number, but a

@@ -5975,7 +5975,6 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
     private fun ambientEffectDescription(effect: AmbientEffect): String = getString(when (effect) {
         AmbientEffect.MUSIC -> R.string.settings_ambient_effect_music_desc
         AmbientEffect.BREATHING -> R.string.settings_ambient_effect_breathing_desc
-        AmbientEffect.METEOR -> R.string.settings_ambient_effect_meteor_desc
     })
 
     private fun ambientBrightnessText(level: Int): String =
@@ -6035,14 +6034,13 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         }
         musicOptions.addView(modeNote)
         body.addView(musicOptions)
-        // Breathing and meteor need continuous intensity and per-zone writes, which only this head
-        // unit's lamp interface offers, so the row is not offered where it could not work.
+        // Breathing needs a continuous intensity, which only this head unit's lamp interface offers,
+        // so the row is not offered where it could not work.
         if (ecarxLamps) {
             val effectNote = label(ambientEffectDescription(draft.effect), 13, MUTED)
             choice(body, getString(R.string.settings_ambient_effect), listOf(
                 getString(R.string.settings_ambient_music),
                 getString(R.string.settings_ambient_effect_breathing),
-                getString(R.string.settings_ambient_effect_meteor),
             ), draft.effect.ordinal, reconnects = false) {
                 draft = draft.copy(effect = AmbientEffect.entries[it])
                 effectNote.text = ambientEffectDescription(draft.effect)

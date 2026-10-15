@@ -73,13 +73,12 @@ internal object EcarxAmbientLightPolicy {
     data class Values(val color: Int, val intensity: Int)
 
     /**
-     * The product's `(area, color, brightness)` frame as an ECARX ZoneAll write.
-     *
-     * `area` is ignored on purpose: the BYD front/rear split has no known zone mapping on this head
-     * unit, and guessing one could light the wrong part of the interior. ZoneAll is the whole strip.
+     * The product's `(area, color, intensity)` frame as an ECARX ZoneAll write. On this path the third
+     * value is already an intensity: the six levels are expanded before they reach here (see
+     * [scaledIntensity]), so nothing is quantised twice.
      */
-    fun valuesFor(colorNumber: Int, brightness: Int): Values =
-        Values(rgbFor(colorNumber), intensityFor(brightness))
+    fun valuesFor(colorNumber: Int, intensity: Int): Values =
+        Values(rgbFor(colorNumber), intensity.coerceIn(1, MAX_INTENSITY))
 
     /**
      * Restore order, matching the measured probe: the whole-strip value first, then each zone. Status
@@ -107,10 +106,10 @@ internal object EcarxAmbientLightPolicy {
      * and ends at zero slope. That is the "sine" shape - a linear ramp still reads as a snap at both
      * ends, and the stock six-level scale only ever offered those ends.
      */
-    fun ease(step: Int): Double {
-        val t = (step.toDouble() / RAMP_STEPS).coerceIn(0.0, 1.0)
-        return (1 - cos(PI * t)) / 2
-    }
+    fun ease(step: Int): Double = easeFraction(step.toDouble() / RAMP_STEPS)
+
+    /** The same raised cosine as a function of any 0..1 progress, for time-based motion. */
+    fun easeFraction(progress: Double): Double = (1 - cos(PI * progress.coerceIn(0.0, 1.0))) / 2
 
     /** A bigger jump takes a little longer, so a full-range change does not snap either. */
     fun rampMillis(fromIntensity: Int, toIntensity: Int): Long {
@@ -122,14 +121,18 @@ internal object EcarxAmbientLightPolicy {
     fun mix(from: Int, to: Int, fraction: Double): Int =
         (from + (to - from) * fraction.coerceIn(0.0, 1.0)).roundToInt()
 
-    /** Animation frames per second budget: the zone lamps sit on the vehicle bus, not a display. */
-    const val ANIMATION_FRAME_MILLIS = 100L
+    /**
+     * Animation frames per second budget: the zone lamps sit on the vehicle bus, not a display. At
+     * 25 Hz a breath moves in small enough increments to read as a glide; this one value sets both
+     * how smooth the motion looks and how much traffic the lamp service sees.
+     */
+    const val ANIMATION_FRAME_MILLIS = 40L
+
+    /** How long a colour takes to glide to a new one, so a beat does not snap the strip. */
+    const val COLOR_GLIDE_MILLIS = 220L
 
     /** A breath never reaches zero, so the strip keeps its colour while it moves. */
     const val BREATH_FLOOR_PERCENT = 25
-
-    /** How many zones the meteor's tail trails behind its head. */
-    const val METEOR_TAIL_ZONES = 2.0
 
     /** One full cycle of an effect. The dialog's existing speed control sets the pace. */
     fun effectPeriodMillis(effect: AmbientEffect, speed: AmbientColorSpeed): Long = when (effect) {
@@ -138,11 +141,6 @@ internal object EcarxAmbientLightPolicy {
             AmbientColorSpeed.SLOW -> 6_000L
             AmbientColorSpeed.STANDARD -> 3_500L
             AmbientColorSpeed.FAST -> 1_800L
-        }
-        AmbientEffect.METEOR -> when (speed) {
-            AmbientColorSpeed.SLOW -> 3_000L
-            AmbientColorSpeed.STANDARD -> 1_600L
-            AmbientColorSpeed.FAST -> 900L
         }
     }
 
@@ -157,27 +155,12 @@ internal object EcarxAmbientLightPolicy {
         mix(floorIntensity(target), target, breathFraction(phase))
 
     /**
-     * Meteor levels at [phase] of a full sweep, one 0..1 value per zone. A head travels around the
-     * zones with a tail behind it and wraps at the end, so the sweep never stops.
+     * The music response on a continuous scale: the lowest level at no energy, the chosen ceiling at
+     * full energy, and every value in between. This is what the product's six-level scale cannot
+     * offer, and what makes the response glide instead of stepping.
      */
-    fun meteorLevels(
-        phase: Double,
-        zones: Int = ZONE_COUNT,
-        tail: Double = METEOR_TAIL_ZONES,
-    ): List<Double> {
-        require(zones > 0) { "zones must be positive: $zones" }
-        require(tail > 0.0) { "tail must be positive: $tail" }
-        val position = (phase.mod(1.0)) * zones
-        return (0 until zones).map { zone ->
-            val direct = abs(position - zone)
-            val distance = minOf(direct, zones - direct)
-            (1.0 - distance / tail).coerceIn(0.0, 1.0)
-        }
-    }
-
-    /** A meteor zone's intensity: the head reaches the target, the tail fades to the floor. */
-    fun meteorIntensity(target: Int, level: Double): Int =
-        mix(floorIntensity(target), target, level.coerceIn(0.0, 1.0))
+    fun scaledIntensity(fraction: Double, ceilingLevel: Int): Int =
+        mix(intensityFor(1), intensityFor(ceilingLevel.coerceIn(1, 6)), fraction)
 
     /**
      * `getPA_*` returns the vendor's `PATypes`. Color and intensity answer with a number, but a

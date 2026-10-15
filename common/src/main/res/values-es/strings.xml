@@ -780,10 +780,8 @@
     <string name="settings_ambient_speed">Velocidad de transición del brillo</string>
     <string name="settings_ambient_effect">Animación</string>
     <string name="settings_ambient_effect_breathing">Respiración</string>
-    <string name="settings_ambient_effect_meteor">Meteoro</string>
     <string name="settings_ambient_effect_music_desc">El brillo sigue la música.</string>
     <string name="settings_ambient_effect_breathing_desc">Los colores elegidos respiran a la velocidad configurada.</string>
-    <string name="settings_ambient_effect_meteor_desc">Los colores elegidos recorren el habitáculo a la velocidad configurada.</string>
     <string name="settings_ambient_behavior_title">Qué ocurre</string>
     <string name="settings_ambient_behavior_off">El control está desactivado. El coche mantiene sus propios colores, brillo y zona.</string>
     <string name="settings_ambient_behavior_follow">Con música · %1$s: las luces siguen la música, hasta el nivel %2$d.</string>

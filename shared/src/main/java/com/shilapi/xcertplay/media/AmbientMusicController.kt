@@ -287,7 +287,18 @@ object AmbientMusicController {
             envelope?.playedWindow(head, headPlaying) ?: AmbientMusicEnvelope.Energy(0.0, 0.0)
         } else AmbientMusicEnvelope.Energy(0.0, 0.0)
         val rms = energy.rms
-        val brightness = when (target) {
+        // This head unit's lamps take a continuous intensity, so the music response is not quantised
+        // to the product's six brightness levels on the way to them.
+        val brightness = if (EcarxAmbientLightPolicy.supported()) {
+            when (target) {
+                AmbientMusicTarget.LOWEST -> EcarxAmbientLightPolicy.intensityFor(1)
+                AmbientMusicTarget.FOLLOW_PLAYBACK -> EcarxAmbientLightPolicy.scaledIntensity(
+                    brightnessEnvelope.fraction(rms, nowMillis, values.brightness),
+                    values.brightness,
+                )
+                else -> EcarxAmbientLightPolicy.intensityFor(values.brightness.coerceIn(1, 6))
+            }
+        } else when (target) {
             AmbientMusicTarget.LOWEST -> 1
             AmbientMusicTarget.FOLLOW_PLAYBACK -> brightnessEnvelope.level(rms, nowMillis, values.brightness)
             else -> values.brightness

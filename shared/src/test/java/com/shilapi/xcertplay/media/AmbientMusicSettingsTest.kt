@@ -27,9 +27,9 @@ class AmbientMusicSettingsTest {
     }
 
     @Test fun theAnimationEffectSurvivesARoundTrip() {
-        val saved = AmbientMusicSettings.load(context).copy(enabled = true, effect = AmbientEffect.METEOR)
+        val saved = AmbientMusicSettings.load(context).copy(enabled = true, effect = AmbientEffect.BREATHING)
         AmbientMusicSettings.save(context, saved)
-        assertEquals(AmbientEffect.METEOR, AmbientMusicSettings.load(context).effect)
+        assertEquals(AmbientEffect.BREATHING, AmbientMusicSettings.load(context).effect)
     }
 
     @Test fun anUnknownStoredEffectFallsBackToFollowingTheMusic() {

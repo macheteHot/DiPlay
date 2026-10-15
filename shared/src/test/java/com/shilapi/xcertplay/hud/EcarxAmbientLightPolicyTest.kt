@@ -48,9 +48,29 @@ class EcarxAmbientLightPolicyTest {
     }
 
     @Test fun oneFrameBecomesTheWholeStripWrite() {
-        val values = EcarxAmbientLightPolicy.valuesFor(colorNumber = 1, brightness = 6)
+        // On this path the third value is already an intensity, so nothing is mapped twice.
+        val values = EcarxAmbientLightPolicy.valuesFor(colorNumber = 1, intensity = 200)
         assertEquals(0xa84cc1, values.color)
-        assertEquals(255, values.intensity)
+        assertEquals(200, values.intensity)
+        assertEquals(EcarxAmbientLightPolicy.MAX_INTENSITY, EcarxAmbientLightPolicy.valuesFor(1, 900).intensity)
+        assertEquals(1, EcarxAmbientLightPolicy.valuesFor(1, 0).intensity)
+    }
+
+    @Test fun theMusicResponseIsContinuousOnThisScale() {
+        val ceiling = 6
+        // No energy sits at the lowest level, full energy at the chosen ceiling, and the middle is
+        // reachable: that is the resolution the six-level product scale cannot provide.
+        assertEquals(EcarxAmbientLightPolicy.intensityFor(1), EcarxAmbientLightPolicy.scaledIntensity(0.0, ceiling))
+        assertEquals(EcarxAmbientLightPolicy.intensityFor(6), EcarxAmbientLightPolicy.scaledIntensity(1.0, ceiling))
+        val middle = EcarxAmbientLightPolicy.scaledIntensity(0.5, ceiling)
+        assertTrue("$middle must sit between the ends", middle > EcarxAmbientLightPolicy.intensityFor(1) &&
+            middle < EcarxAmbientLightPolicy.intensityFor(6))
+        assertTrue("a lower ceiling stays lower", EcarxAmbientLightPolicy.scaledIntensity(1.0, 3) <
+            EcarxAmbientLightPolicy.scaledIntensity(1.0, 6))
+        // Every step of a sweep is distinct: no two neighbouring fractions collapse to one value.
+        val sweep = (0..20).map { EcarxAmbientLightPolicy.scaledIntensity(it / 20.0, ceiling) }
+        assertEquals("a sweep must keep rising: $sweep", sweep, sweep.sorted())
+        assertTrue("the sweep is finely grained", sweep.distinct().size >= 20)
     }
 
     @Test fun aSnapshotNeedsEveryZoneAndAcceptableValues() {
@@ -142,43 +162,15 @@ class EcarxAmbientLightPolicyTest {
         assertTrue("even a tiny target stays visible", EcarxAmbientLightPolicy.floorIntensity(1) >= 1)
     }
 
-    @Test fun theMeteorHeadTravelsWithATailAndWraps() {
-        val start = EcarxAmbientLightPolicy.meteorLevels(0.0)
-        assertEquals(EcarxAmbientLightPolicy.ZONE_COUNT, start.size)
-        assertEquals(1.0, start[0], 0.0001)
-        assertTrue("the tail follows the head: $start", start[1] < start[0] && start[1] > 0.0)
-        // The head sits on the first zone, so the last zone holds the other half of the tail.
-        assertEquals(start[1], start[4], 0.0001)
-        val middle = EcarxAmbientLightPolicy.meteorLevels(0.5)
-        assertTrue("the head moved: $middle", middle[2] > middle[0])
-        assertTrue((start + middle).all { it in 0.0..1.0 })
-        // A full cycle is the same frame again, so the sweep loops without a jump.
-        assertEquals(start, EcarxAmbientLightPolicy.meteorLevels(1.0))
-    }
 
-    @Test fun aMeteorZoneStaysBetweenTheFloorAndTheTarget() {
-        val target = 255
-        val floor = EcarxAmbientLightPolicy.floorIntensity(target)
-        assertEquals(floor, EcarxAmbientLightPolicy.meteorIntensity(target, 0.0))
-        assertEquals(target, EcarxAmbientLightPolicy.meteorIntensity(target, 1.0))
-        assertEquals(target, EcarxAmbientLightPolicy.meteorIntensity(target, 4.0))
-        assertEquals(floor, EcarxAmbientLightPolicy.meteorIntensity(target, -2.0))
-    }
 
     @Test fun theEffectPeriodFollowsTheSpeedAndMusicHasNone() {
         assertEquals(0L, EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.MUSIC, AmbientColorSpeed.STANDARD))
-        listOf(AmbientEffect.BREATHING, AmbientEffect.METEOR).forEach { effect ->
-            val slow = EcarxAmbientLightPolicy.effectPeriodMillis(effect, AmbientColorSpeed.SLOW)
-            val standard = EcarxAmbientLightPolicy.effectPeriodMillis(effect, AmbientColorSpeed.STANDARD)
-            val fast = EcarxAmbientLightPolicy.effectPeriodMillis(effect, AmbientColorSpeed.FAST)
-            assertTrue("$effect must speed up: $slow/$standard/$fast", slow > standard && standard > fast)
-            assertTrue("a frame every ${fast}ms still leaves room: $fast", fast >= 500L)
-        }
-        assertTrue(
-            "a breath is slower than a sweep",
-            EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.BREATHING, AmbientColorSpeed.STANDARD) >
-                EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.METEOR, AmbientColorSpeed.STANDARD),
-        )
+        val slow = EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.BREATHING, AmbientColorSpeed.SLOW)
+        val standard = EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.BREATHING, AmbientColorSpeed.STANDARD)
+        val fast = EcarxAmbientLightPolicy.effectPeriodMillis(AmbientEffect.BREATHING, AmbientColorSpeed.FAST)
+        assertTrue("the breath must speed up: $slow/$standard/$fast", slow > standard && standard > fast)
+        assertTrue("a frame every ${fast}ms still leaves room: $fast", fast >= 500L)
     }
 
     @Test fun aDataValueIsReadFromTheVendorToString() {

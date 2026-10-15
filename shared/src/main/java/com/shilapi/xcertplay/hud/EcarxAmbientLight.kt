@@ -60,8 +60,15 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
     private var animationEffect = AmbientEffect.MUSIC
     private var animationPeriodMillis = 0L
     private var animationBase = Lamp(0, 0)
-    private var animationZoneColor: Int? = null
-    private val shownZoneIntensity = IntArray(EcarxAmbientLightPolicy.ZONE_COUNT) { UNREADABLE }
+    private var animationColorFrom = 0
+    private var animationColorTo = 0
+    private var animationColorStartedAt = 0L
+    private var animationColorMillis = 0L
+    private var animationColorWritten = UNREADABLE
+    private var animationIntensityWritten = UNREADABLE
+
+    /** The whole-strip status is written once per session, not per frame. */
+    private var allZoneOn = false
 
     /** The two values a transition moves between. */
     private data class Lamp(val color: Int, val intensity: Int)
@@ -143,6 +150,7 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
      * domain; the step between two levels is what would otherwise read as a snap.
      */
     private fun startTransition(manager: Any, values: EcarxAmbientLightPolicy.Values, future: CompletableFuture<Unit>) {
+        ensureAllOn(manager)
         val from = shown ?: Lamp(values.color, values.intensity)
         val to = Lamp(values.color, values.intensity)
         if (from == to) {
@@ -159,7 +167,7 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
     /**
      * Starts or updates an animation that runs on its own clock, so it keeps moving without music and
      * keeps looking the same whether or not a frame happens to arrive. The colour still comes from the
-     * settings (palette or artwork), and the music-driven level stays the animation's peak.
+     * settings (palette or artwork) and glides when it changes; the music-driven level stays the peak.
      */
     private fun startAnimation(
         manager: Any,
@@ -177,23 +185,33 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
             Log.i(TAG, "lamp animation ${effect.name.lowercase()} period=${period}ms color=${values.color}")
             animationGeneration++
             animationStartedAt = SystemClock.uptimeMillis()
-            shownZoneIntensity.fill(UNREADABLE)
         }
-        if (effect == AmbientEffect.METEOR) ensureAnimationZones(manager, values.color)
+        glideColorTo(values.color)
+        ensureAllOn(manager)
         writeAnimationFrame(manager, animationGeneration)
         future.complete(Unit)
         scheduleAnimationFrame(manager, animationGeneration)
     }
 
-    /** The meteor needs every zone switched on and coloured once; only intensities move afterwards. */
-    private fun ensureAnimationZones(manager: Any, color: Int) {
-        if (animationZoneColor == color) return
-        for (zone in 1..EcarxAmbientLightPolicy.ZONE_COUNT) {
-            invokeInt(manager, "CB_Zone${zone}StatusSettings", ON)
-            invokeInt(manager, "CB_Zone${zone}ColorSettings", color)
-        }
-        animationZoneColor = color
-        shownZoneIntensity.fill(UNREADABLE)
+    /** The strip's colour glides to a new one instead of snapping on the beat that changed it. */
+    private fun glideColorTo(color: Int) {
+        if (animationColorTo == color) return
+        animationColorFrom = animationColorNow()
+        animationColorTo = color
+        animationColorStartedAt = SystemClock.uptimeMillis()
+        animationColorMillis = EcarxAmbientLightPolicy.COLOR_GLIDE_MILLIS
+    }
+
+    /** Where the colour glide is right now, from the elapsed time rather than from frame counting. */
+    private fun animationColorNow(): Int {
+        val total = animationColorMillis
+        if (total <= 0L || animationColorFrom == animationColorTo) return animationColorTo
+        val progress = (SystemClock.uptimeMillis() - animationColorStartedAt).toDouble() / total
+        return EcarxAmbientLightPolicy.mix(
+            animationColorFrom,
+            animationColorTo,
+            EcarxAmbientLightPolicy.easeFraction(progress),
+        )
     }
 
     private fun scheduleAnimationFrame(manager: Any, generation: Int) {
@@ -210,38 +228,35 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         }
     }
 
-    /** Writes one animation frame from the elapsed time, so a late frame does not distort the motion. */
+    /**
+     * Writes one animation frame from the elapsed time, so a late frame does not distort the motion.
+     * Only the values that actually changed are written: the lamp service sits on the vehicle bus.
+     */
     private fun writeAnimationFrame(manager: Any, generation: Int) {
         if (generation != animationGeneration || phase != Phase.ACTIVE) return
         val period = animationPeriodMillis
         val phase = if (period <= 0L) 0.0
         else ((SystemClock.uptimeMillis() - animationStartedAt) % period).toDouble() / period
-        when (animationEffect) {
-            AmbientEffect.MUSIC -> Unit
-            AmbientEffect.BREATHING -> {
-                val intensity = EcarxAmbientLightPolicy.breathIntensity(animationBase.intensity, phase)
-                writeZoneAll(manager, animationBase.color, intensity, writeColor = false)
-                shown = Lamp(animationBase.color, intensity)
-            }
-            AmbientEffect.METEOR -> {
-                EcarxAmbientLightPolicy.meteorLevels(phase).forEachIndexed { index, level ->
-                    val intensity = EcarxAmbientLightPolicy.meteorIntensity(animationBase.intensity, level)
-                    if (shownZoneIntensity[index] != intensity) {
-                        invokeInt(manager, "CB_Zone${index + 1}IntensitySettings", intensity)
-                        shownZoneIntensity[index] = intensity
-                    }
-                }
-                shown = Lamp(animationBase.color, animationBase.intensity)
-            }
+        val color = animationColorNow()
+        if (color != animationColorWritten) {
+            writeColor(manager, color)
+            animationColorWritten = color
         }
+        val intensity = EcarxAmbientLightPolicy.breathIntensity(animationBase.intensity, phase)
+        if (intensity != animationIntensityWritten) {
+            writeIntensity(manager, intensity)
+            animationIntensityWritten = intensity
+        }
+        shown = Lamp(color, intensity)
     }
 
     private fun stopAnimation() {
         animationGeneration++
         animationEffect = AmbientEffect.MUSIC
         animationPeriodMillis = 0L
-        animationZoneColor = null
-        shownZoneIntensity.fill(UNREADABLE)
+        animationColorMillis = 0L
+        animationColorWritten = UNREADABLE
+        animationIntensityWritten = UNREADABLE
     }
 
     /**
@@ -261,7 +276,8 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         val last = step >= EcarxAmbientLightPolicy.RAMP_STEPS
         val color = if (last) to.color else EcarxAmbientLightPolicy.mix(from.color, to.color, fraction)
         val intensity = if (last) to.intensity else EcarxAmbientLightPolicy.mix(from.intensity, to.intensity, fraction)
-        writeZoneAll(manager, color, intensity, writeColor = from.color != to.color || last)
+        if (from.color != to.color || last) writeColor(manager, color)
+        writeIntensity(manager, intensity)
         if (last) {
             shown = to
             logReadBack(manager)
@@ -294,6 +310,7 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         rampGeneration++
         stopAnimation()
         shown = null
+        allZoneOn = false
         if (phase != Phase.ACTIVE) {
             phase = Phase.IDLE
             return@submit
@@ -412,11 +429,23 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         return field?.toString() ?: result.toString()
     }
 
-    /** One point of a transition: the strip follows the color only when it is changing. */
-    private fun writeZoneAll(manager: Any, color: Int, intensity: Int, writeColor: Boolean) {
+    /**
+     * Turns the whole strip on once per session. Rewriting the status on every frame would restart
+     * whatever the lamp service does when that property changes, which reads as a jolt.
+     */
+    private fun ensureAllOn(manager: Any) {
+        if (allZoneOn) return
         invokeInt(manager, "CB_ZoneAllStatusSettings", ON)
-        if (writeColor) invokeInt(manager, "CB_ZoneAllColorSettings", color)
+        allZoneOn = true
+    }
+
+    /** One intensity point. The colour is a separate property and is only written while it changes. */
+    private fun writeIntensity(manager: Any, intensity: Int) {
         invokeInt(manager, "CB_ZoneAllIntensitySettings", intensity)
+    }
+
+    private fun writeColor(manager: Any, color: Int) {
+        invokeInt(manager, "CB_ZoneAllColorSettings", color)
     }
 
     /** A rare read-back so a silently ignored write is visible in a report, without failing the apply. */

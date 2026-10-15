@@ -840,10 +840,8 @@
     <string name="settings_ambient_speed">亮度過渡速度</string>
     <string name="settings_ambient_effect">動畫</string>
     <string name="settings_ambient_effect_breathing">呼吸</string>
-    <string name="settings_ambient_effect_meteor">流星</string>
     <string name="settings_ambient_effect_music_desc">亮度跟著音樂變化。</string>
     <string name="settings_ambient_effect_breathing_desc">所選顏色依設定速度呼吸。</string>
-    <string name="settings_ambient_effect_meteor_desc">所選顏色依設定速度在車內流動。</string>
     <string name="settings_ambient_behavior_title">運作方式</string>
     <string name="settings_ambient_behavior_off">控制已關閉。車輛維持自己的燈光顏色、亮度和區域。</string>
     <string name="settings_ambient_behavior_follow">播放音樂時 · %1$s：燈光跟隨音樂變化，最高到第 %2$d 檔。</string>

@@ -17,8 +17,10 @@ android {
         applicationId = "com.shihab.diplay"
         minSdk = 25
         targetSdk = 37
-        versionCode = 39
-        versionName = "0.2.20"
+        // The lynk build carries upstream's 0.2.20 content plus everything merged after the
+        // v0.2.20 preview, so it must not claim that preview's version.
+        versionCode = 40
+        versionName = "0.2.21"
 
     }
 

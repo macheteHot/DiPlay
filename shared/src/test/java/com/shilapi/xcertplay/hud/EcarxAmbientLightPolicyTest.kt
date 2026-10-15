@@ -89,7 +89,7 @@ class EcarxAmbientLightPolicyTest {
             EcarxAmbientLightPolicy.parseDataValue("PATypes{availability = Active, dataValue = 16742655, statusValue = 0, formatValue = null}"),
         )
         assertEquals(20, EcarxAmbientLightPolicy.parseDataValue("PATypes{dataValue = 20}"))
-        assertEquals(0, EcarxAmbientLightPolicy.parseDataValue("PATypes{dataValue = 0,}")
+        assertEquals(0, EcarxAmbientLightPolicy.parseDataValue("PATypes{dataValue = 0,}"))
     }
 
     @Test fun aToStringWithoutAUsableValueIsNotZero() {

@@ -159,8 +159,12 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
 
     private fun createCar(): Any? {
         val cls = load(CLS_ECARX_CAR) ?: return null
-        val method = findMethod(cls, "createCar", 2) ?: return null
-        return method.invoke(null, app, connection)
+        // The static factory takes (Context, ServiceConnection) and binds the connection itself.
+        val method = cls.methods.firstOrNull { it.name == "createCar" && it.parameterTypes.size == 2 } ?: return null
+        return runCatching { method.invoke(null, app, connection) }.getOrElse {
+            Log.w(TAG, "ECarXCar.createCar failed", it)
+            null
+        }
     }
 
     private fun manager(): Any = ambli ?: run { ensureConnected(); ambli ?: error("ecarx-ambient-manager-unavailable") }
@@ -225,11 +229,18 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
         null
     }
 
-    private fun findMethod(cls: Class<*>, name: String, parameters: Int): Method? =
-        cls.methods.firstOrNull { it.name == name && it.parameterTypes.size == parameters }
+    /**
+     * Matches by name, argument count and an assignable parameter type: the vendored managers expose
+     * overloads, and picking the wrong one would silently call a different property.
+     */
+    private fun findMethod(cls: Class<*>, name: String, parameter: Class<*>?): Method? {
+        val candidates = cls.methods.filter { it.name == name }
+        if (parameter == null) return candidates.firstOrNull { it.parameterTypes.isEmpty() }
+        return candidates.firstOrNull { it.parameterTypes.size == 1 && it.parameterTypes[0].isAssignableFrom(parameter) }
+    }
 
     private fun invokeNoArg(target: Any, name: String): Any? {
-        val method = findMethod(target.javaClass, name, 0) ?: return null
+        val method = findMethod(target.javaClass, name, null) ?: return null
         return runCatching { method.invoke(target) }.getOrElse {
             Log.w(TAG, "${target.javaClass.simpleName}.$name() failed", it)
             null
@@ -237,7 +248,7 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
     }
 
     private fun invoke(target: Any, name: String, argument: Any): Any? {
-        val method = findMethod(target.javaClass, name, 1) ?: return null
+        val method = findMethod(target.javaClass, name, argument.javaClass) ?: return null
         return runCatching { method.invoke(target, argument) }.getOrElse {
             Log.w(TAG, "${target.javaClass.simpleName}.$name($argument) failed", it)
             null
@@ -245,10 +256,13 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
     }
 
     private fun invokeInt(target: Any, name: String, value: Int): Any? {
-        val method = findMethod(target.javaClass, name, 1) ?: run {
-            Log.w(TAG, "${target.javaClass.simpleName}.$name(int) not found")
-            return null
-        }
+        // An int property is declared as the primitive; a boxed parameter also accepts it.
+        val method = findMethod(target.javaClass, name, Int::class.javaPrimitiveType)
+            ?: findMethod(target.javaClass, name, Integer::class.java)
+            ?: run {
+                Log.w(TAG, "${target.javaClass.simpleName}.$name(int) not found")
+                return null
+            }
         return runCatching { method.invoke(target, value) }.getOrElse {
             Log.w(TAG, "${target.javaClass.simpleName}.$name($value) failed", it)
             null
@@ -262,14 +276,19 @@ internal class EcarxAmbientLightClient(context: Context) : AutoCloseable {
             future.completeExceptionally(IllegalStateException("client-closed"))
             return future
         }
-        executor.execute {
-            try {
-                future.complete(block())
-            } catch (error: Throwable) {
-                if (phase == Phase.ACTIVE) phase = Phase.FAILED
-                Log.w(TAG, "lamp call failed", error)
-                future.completeExceptionally(error)
+        try {
+            executor.execute {
+                try {
+                    future.complete(block())
+                } catch (error: Throwable) {
+                    if (phase == Phase.ACTIVE) phase = Phase.FAILED
+                    Log.w(TAG, "lamp call failed", error)
+                    future.completeExceptionally(error)
+                }
             }
+        } catch (error: Throwable) {
+            // Closed between the check above and the submit; the session treats this as a failed call.
+            future.completeExceptionally(error)
         }
         return future
     }

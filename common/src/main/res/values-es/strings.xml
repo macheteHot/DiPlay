@@ -812,8 +812,11 @@
     <string name="settings_ambient_rear">Trasera</string>
     <string name="settings_ambient_all">Todas</string>
     <string name="settings_ambient_parked_notice">Configura con el vehículo estacionado. Compatibilidad experimental con algunas interfaces BYD; puede variar según modelo y firmware. El nivel 0 es el mínimo OEM, no apagado.</string>
+    <string name="settings_ambient_parked_notice_ecarx">Configura con el vehículo estacionado. Compatibilidad experimental con la interfaz de iluminación de esta unidad; no se garantiza en otros modelos o firmwares. El nivel 0 es el nivel mínimo, no el apagado.</string>
     <string name="settings_ambient_checking">Comprobando…</string>
     <string name="settings_ambient_unavailable">La comprobación de solo lectura falló: falta autorización ADB existente o una interfaz compatible. No se guardaron ajustes. Configura el acceso por separado con el vehículo estacionado; esta función no activa ADB ni solicita autorización.</string>
+    <string name="settings_ambient_unavailable_ecarx">La comprobación de solo lectura falló: la interfaz de iluminación del coche no respondió. No se guardaron ajustes de luz.</string>
+    <string name="settings_ambient_enable_description_ecarx">Al desactivarlo, DiPlay intenta restaurar el color y el brillo originales de la luz.</string>
     <string name="settings_disable_media_key_audio_focus">Desactivar el foco de audio de las teclas multimedia (experimental)</string>
     <string name="settings_disable_media_key_audio_focus_description">Impide que DiPlay solicite el foco de audio multimedia mientras se reproduce música de CarPlay. Actívalo si la unidad dirige los botones físicos de volumen a DiPlay y dejan de ajustar el volumen. Los controles del volante para reproducir, pausar y cambiar de pista pueden dejar de funcionar en unidades que requieren el foco. Se aplica en la próxima conexión de CarPlay.</string>
     <string name="settings_ambient_album">Seguir la portada del álbum</string>

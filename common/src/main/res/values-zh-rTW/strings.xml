@@ -872,8 +872,11 @@
     <string name="settings_ambient_rear">後排</string>
     <string name="settings_ambient_all">全部</string>
     <string name="settings_ambient_parked_notice">請停車後設定。實驗性支援部分 BYD 燈光介面，無法保證每種車型及韌體相容。0 表示原廠最低檔，不代表關燈。</string>
+    <string name="settings_ambient_parked_notice_ecarx">請停車後設定。實驗性支援本車機的燈光介面，無法保證其他車型或韌體相容。0 表示最低檔，不代表關燈。</string>
     <string name="settings_ambient_checking">檢查中…</string>
     <string name="settings_ambient_unavailable">唯讀檢查失敗：缺少既有 ADB 授權或支援的燈光介面。未儲存燈光設定。請停車後另行設定存取；本功能不啟用 ADB，也不請求授權。</string>
+    <string name="settings_ambient_unavailable_ecarx">唯讀檢查失敗：車機的燈光介面沒有回應，未儲存燈光設定。</string>
+    <string name="settings_ambient_enable_description_ecarx">關閉後 DiPlay 會嘗試還原燈光原本的顏色與亮度。</string>
     <string name="settings_disable_media_key_audio_focus">停用媒體按鍵音訊焦點（實驗性）</string>
     <string name="settings_disable_media_key_audio_focus_description">CarPlay 音樂播放時不再由 DiPlay 要求媒體音訊焦點。若車機將實體音量鍵導向 DiPlay，導致音量鍵無法調整音量，請開啟此項。部分依賴音訊焦點的車機可能無法繼續使用方向盤播放、暫停和切歌鍵。下次連線至 CarPlay 時生效。</string>
     <string name="settings_ambient_album">跟隨專輯封面</string>

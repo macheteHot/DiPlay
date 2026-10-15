@@ -812,8 +812,11 @@
     <string name="settings_ambient_rear">خلفية</string>
     <string name="settings_ambient_all">الكل</string>
     <string name="settings_ambient_parked_notice">اضبط أثناء الوقوف. دعم تجريبي لبعض واجهات BYD؛ التوافق يختلف حسب الطراز والبرنامج الثابت. المستوى 0 يعني أدنى مستوى للمصنع وليس إطفاء الإضاءة.</string>
+    <string name="settings_ambient_parked_notice_ecarx">اضبط أثناء الوقوف. دعم تجريبي لواجهة إضاءة هذه الشاشة؛ التوافق غير مضمون لطرازات أو إصدارات أخرى. المستوى 0 يعني أدنى سطوع وليس الإطفاء.</string>
     <string name="settings_ambient_checking">جارٍ التحقق…</string>
     <string name="settings_ambient_unavailable">فشل التحقق للقراءة فقط: تفويض ADB الموجود أو واجهة الإضاءة المدعومة غير متاحة. لم تُحفظ الإعدادات. اضبط الوصول بشكل منفصل أثناء الوقوف؛ هذه الميزة لا تفعّل ADB ولا تطلب التفويض.</string>
+    <string name="settings_ambient_unavailable_ecarx">فشل التحقق للقراءة فقط: لم تستجب واجهة إضاءة السيارة. لم تُحفظ إعدادات الإضاءة.</string>
+    <string name="settings_ambient_enable_description_ecarx">إيقاف هذا يحاول إعادة لون الإضاءة السابق ودرجة سطوعها.</string>
     <string name="settings_disable_media_key_audio_focus">تعطيل تركيز الصوت لمفاتيح الوسائط (تجريبي)</string>
     <string name="settings_disable_media_key_audio_focus_description">يمنع DiPlay من طلب تركيز صوت الوسائط أثناء تشغيل موسيقى CarPlay. فعّله إذا كانت وحدة السيارة توجّه أزرار مستوى الصوت الفعلية إلى DiPlay فلا تعود تضبط مستوى الصوت. قد تتوقف أزرار التشغيل والإيقاف المؤقت وتغيير المسار في عجلة القيادة على الوحدات التي تتطلب التركيز. يُطبّق عند اتصال CarPlay التالي.</string>
     <string name="settings_ambient_album">اتباع غلاف الألبوم</string>

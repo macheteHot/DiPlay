@@ -801,8 +801,11 @@
     <string name="settings_ambient_rear">后排</string>
     <string name="settings_ambient_all">全部</string>
     <string name="settings_ambient_parked_notice">请在车辆停放时配置。本功能针对部分BYD氛围灯接口，不能保证所有车型和固件兼容。亮度0代表原车最低档，不代表断电关闭。</string>
+    <string name="settings_ambient_parked_notice_ecarx">请在车辆停放时配置。本功能针对本车机的灯光接口，不能保证其他车型或固件兼容。亮度0代表最低档，不代表关闭。</string>
     <string name="settings_ambient_checking">正在检查…</string>
     <string name="settings_ambient_unavailable">只读检查失败：已有ADB授权或支持的氛围灯接口不可用，灯光设置未保存。请在停车时单独配置访问权限，本功能不会启用ADB或申请授权。</string>
+    <string name="settings_ambient_unavailable_ecarx">只读检查失败：车机的灯光接口没有响应，灯光设置未保存。</string>
+    <string name="settings_ambient_enable_description_ecarx">关闭后 DiPlay 会尝试恢复灯光原来的颜色与亮度。</string>
     <string name="settings_interface_size">界面大小</string>
     <string name="settings_interface_size_auto">自动</string>
     <string name="settings_interface_size_hint">lynkPlay 自身界面中文字和控件的大小。自动模式会在大尺寸低密度屏幕上放大它们。不影响 CarPlay。</string>

@@ -56,6 +56,7 @@ import com.shilapi.xcertplay.backup.SettingsBackupEndpoint
 import com.shilapi.xcertplay.backup.SettingsBackupServer
 import com.shilapi.xcertplay.backup.SettingsQrCode
 import com.shilapi.xcertplay.compat.closeCompat
+import com.shilapi.xcertplay.hud.AmbientLampSupport
 import com.shilapi.xcertplay.hud.BydAdbAccess
 import com.shilapi.xcertplay.hud.BydNavigationOutputs
 import com.shilapi.xcertplay.hud.BydFieldSource
@@ -5975,8 +5976,10 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
 
     private fun showAmbientConfiguration() {
         var draft = AmbientMusicSettings.load(this)
+        // This head unit drives its lamps in-process, without ADB, so the dialog must not name ADB or BYD.
+        val ecarxLamps = AmbientLampSupport.usesEcarxCar()
         val body = column().apply { setPadding(dp(24), dp(12), dp(24), dp(12)) }
-        body.addView(label(getString(R.string.settings_ambient_parked_notice), 14, MUTED))
+        body.addView(label(getString(if (ecarxLamps) R.string.settings_ambient_parked_notice_ecarx else R.string.settings_ambient_parked_notice), 14, MUTED))
         body.addView(space(12))
         body.addView(label(getString(R.string.settings_ambient_behavior_title), 16, ACCENT, bold = true))
         val behavior = label("", 14, MUTED)
@@ -5997,7 +6000,10 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 else -> R.string.settings_ambient_colors_hint_fixed
             })
         }
-        toggle(body, getString(R.string.settings_ambient_enable), getString(R.string.settings_ambient_enable_description), draft.enabled) {
+        toggle(body, getString(R.string.settings_ambient_enable), getString(
+            if (ecarxLamps) R.string.settings_ambient_enable_description_ecarx
+            else R.string.settings_ambient_enable_description,
+        ), draft.enabled) {
             draft = draft.copy(enabled = it)
             refreshAmbient()
         }
@@ -6096,7 +6102,10 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                             save.isEnabled = true
                             save.text = getString(R.string.save)
                             if (supported == true) commit()
-                            else toast(getString(R.string.settings_ambient_unavailable))
+                            else toast(getString(
+                                if (ecarxLamps) R.string.settings_ambient_unavailable_ecarx
+                                else R.string.settings_ambient_unavailable,
+                            ))
                         }
                     }
                 }

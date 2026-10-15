@@ -812,8 +812,11 @@
     <string name="settings_ambient_rear">Задняя</string>
     <string name="settings_ambient_all">Все</string>
     <string name="settings_ambient_parked_notice">Настраивайте на стоянке. Экспериментальная поддержка некоторых интерфейсов BYD; совместимость зависит от модели и прошивки. Уровень 0 означает минимум OEM, а не выключение.</string>
+    <string name="settings_ambient_parked_notice_ecarx">Настраивайте на стоянке. Экспериментальная поддержка интерфейса подсветки этой магнитолы; совместимость с другими моделями и прошивками не гарантируется. Уровень 0 — минимальная яркость, а не выключение.</string>
     <string name="settings_ambient_checking">Проверка…</string>
     <string name="settings_ambient_unavailable">Проверка без записи не пройдена: нет существующей авторизации ADB или подходящего интерфейса. Настройки не сохранены. Настройте доступ отдельно на стоянке; функция не включает ADB и не запрашивает авторизацию.</string>
+    <string name="settings_ambient_unavailable_ecarx">Проверка без записи не пройдена: интерфейс подсветки автомобиля не ответил. Настройки подсветки не сохранены.</string>
+    <string name="settings_ambient_enable_description_ecarx">При выключении DiPlay попытается вернуть исходные цвет и яркость подсветки.</string>
     <string name="settings_disable_media_key_audio_focus">Отключить аудиофокус медиакнопок (экспериментально)</string>
     <string name="settings_disable_media_key_audio_focus_description">Запрещает DiPlay запрашивать аудиофокус мультимедиа во время воспроизведения музыки CarPlay. Включите, если головное устройство перенаправляет физические кнопки громкости в DiPlay и они перестают регулировать громкость. Кнопки воспроизведения, паузы и смены трека на руле могут перестать работать на устройствах, которым нужен аудиофокус. Применяется при следующем подключении CarPlay.</string>
     <string name="settings_ambient_album">Цвет обложки альбома</string>

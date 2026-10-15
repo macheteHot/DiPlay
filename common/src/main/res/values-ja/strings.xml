@@ -843,8 +843,11 @@
     <string name="settings_ambient_rear">後席</string>
     <string name="settings_ambient_all">すべて</string>
     <string name="settings_ambient_parked_notice">停車中に設定してください。対応する一部BYDライトの実験的機能で、すべての車種・ファームウェアで動作するとは限りません。レベル0は純正の最小輝度であり、消灯ではありません。</string>
+    <string name="settings_ambient_parked_notice_ecarx">停車中に設定してください。この車両のライト制御に対する実験的な対応で、他の車種やファームウェアでの動作は保証しません。レベル0は最低の明るさであり、消灯ではありません。</string>
     <string name="settings_ambient_checking">確認しています…</string>
     <string name="settings_ambient_unavailable">読み取り専用の確認に失敗しました。ADBアクセスが未許可か、対応するライト制御がありません。ライト設定は保存していません。停車中に別途アクセスを設定してください。この機能自体はADBを有効化せず、権限も要求しません。</string>
+    <string name="settings_ambient_unavailable_ecarx">読み取り専用の確認に失敗しました。車両のライト制御が応答しませんでした。ライト設定は保存していません。</string>
+    <string name="settings_ambient_enable_description_ecarx">オフにすると、元のライトの色と明るさに戻すよう試みます。</string>
     <string name="settings_interface_size">画面UIのサイズ</string>
     <string name="settings_interface_size_auto">自動</string>
     <string name="settings_interface_size_hint">DiPlay自体の文字と操作部のサイズです。「自動」は画面密度が低い大画面で拡大します。CarPlayの表示には影響しません。</string>

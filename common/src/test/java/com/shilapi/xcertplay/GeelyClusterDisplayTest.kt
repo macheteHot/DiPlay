@@ -31,6 +31,8 @@ class GeelyClusterDisplayTest {
 
     private companion object {
         const val MEASURED_DEVICE = "msmnile_gvmq"
+        const val MEASURED_PRODUCT = "geely_fx11"
+        const val MEASURED_MODEL = "CS11_A4"
 
         /** Measured flags of displayId 2: FLAG_PRESENTATION | FLAG_SECURE | protected buffers | own content. */
         const val MEASURED_FLAGS = 0x8b
@@ -42,17 +44,46 @@ class GeelyClusterDisplayTest {
 
     @Before fun reset() {
         app.getSharedPreferences("xcertplay_airplay", Context.MODE_PRIVATE).edit().clear().commit()
-        ShadowBuild.setDevice("robolectric")
+        offTheMeasuredHeadUnit()
     }
 
     @After fun tearDown() {
         MapMirrors.streamAspect = MapMirrors.PHYSICAL_STREAM_ASPECT
     }
 
-    @Test fun deviceGateAdmitsOnlyTheMeasuredHeadUnit() {
-        assertTrue(GeelyClusterDisplay.supported(MEASURED_DEVICE))
-        assertFalse(GeelyClusterDisplay.supported("robolectric"))
-        assertFalse(GeelyClusterDisplay.supported(""))
+    /** Everything the route looks at, so the gate is satisfied. */
+    private fun onTheMeasuredHeadUnit() {
+        ShadowBuild.setDevice(MEASURED_DEVICE)
+        ShadowBuild.setProduct(MEASURED_PRODUCT)
+        ShadowBuild.setModel(MEASURED_MODEL)
+    }
+
+    private fun offTheMeasuredHeadUnit() {
+        ShadowBuild.setDevice("robolectric")
+        ShadowBuild.setProduct("robolectric")
+        ShadowBuild.setModel("robolectric")
+    }
+
+    @Test fun theDeviceGateNeedsTheDeviceTheProductAndTheModelTogether() {
+        assertTrue(GeelyClusterDisplay.supported(MEASURED_DEVICE, MEASURED_PRODUCT, MEASURED_MODEL))
+        assertTrue("the build fields are compared without case",
+            GeelyClusterDisplay.supported("MSMNILE_GVMQ", "GEELY_FX11", "cs11_a4"))
+
+        assertFalse("msmnile_gvmq is Qualcomm's generic SA8155 board name, not this car",
+            GeelyClusterDisplay.supported(MEASURED_DEVICE, "other_product", MEASURED_MODEL))
+        assertFalse("the product alone is not this car",
+            GeelyClusterDisplay.supported(MEASURED_DEVICE, MEASURED_PRODUCT, "other_model"))
+        assertFalse("the model alone is not this car",
+            GeelyClusterDisplay.supported("other_device", MEASURED_PRODUCT, MEASURED_MODEL))
+        assertFalse(GeelyClusterDisplay.supported("robolectric", "robolectric", "robolectric"))
+        assertFalse(GeelyClusterDisplay.supported("", "", ""))
+    }
+
+    @Test fun theBuildFieldsAdmitTheMeasuredHeadUnit() {
+        onTheMeasuredHeadUnit()
+        assertTrue(GeelyClusterDisplay.supported())
+        offTheMeasuredHeadUnit()
+        assertFalse(GeelyClusterDisplay.supported())
     }
 
     @Test fun panelMatchNeedsThePresentationFlagTheSizeAndANonDefaultDisplay() {
@@ -87,13 +118,13 @@ class GeelyClusterDisplayTest {
             setFlags(Display.FLAG_PRESENTATION)
         }
         try {
-            ShadowBuild.setDevice(MEASURED_DEVICE)
+            onTheMeasuredHeadUnit()
             assertEquals(id, ClusterMapPresentation.findDisplay(app)?.displayId)
 
-            ShadowBuild.setDevice("robolectric")
+            offTheMeasuredHeadUnit()
             assertNull(ClusterMapPresentation.findDisplay(app))
         } finally {
-            ShadowBuild.setDevice("robolectric")
+            offTheMeasuredHeadUnit()
             ShadowDisplayManager.removeDisplay(id)
         }
     }
@@ -104,7 +135,7 @@ class GeelyClusterDisplayTest {
         shadowOf(app.getSystemService(DisplayManager::class.java).getDisplay(id)).apply {
             setFlags(Display.FLAG_PRESENTATION)
         }
-        ShadowBuild.setDevice(MEASURED_DEVICE)
+        onTheMeasuredHeadUnit()
         val host = Robolectric.buildActivity(CarPlayHostActivity::class.java).get()
         try {
             val config = CarPlayHostActivity::class.java.getDeclaredMethod("clusterDisplayConfig")
@@ -118,7 +149,7 @@ class GeelyClusterDisplayTest {
                     .get(host) as ExecutorService
                 executor.shutdownNow()
             }
-            ShadowBuild.setDevice("robolectric")
+            offTheMeasuredHeadUnit()
             ShadowDisplayManager.removeDisplay(id)
         }
     }

@@ -60,7 +60,7 @@ internal class ClusterMapPresentation(
         override fun run() {
             if (projectionWatchdog.onStatus(GeelyClusterProjection.status())) {
                 Log.i(TAG, "cluster projection was taken away; asking for it again")
-                GeelyClusterProjection.set(true)
+                if (GeelyClusterProjection.set(true)) projectionWatchdog.assertedProjection()
             }
             projectionHandler.postDelayed(this, PROJECTION_TICK_MILLIS)
         }
@@ -170,11 +170,11 @@ internal class ClusterMapPresentation(
         // On the Geely head unit the cluster keeps its factory layer over Android's display 2
         // until the DIM service is asked to project; the stock map does the same.
         if (!GeelyClusterDisplay.supported()) return
-        GeelyClusterProjection.set(true)
+        projectionWatchdog.reset()
+        if (GeelyClusterProjection.set(true)) projectionWatchdog.assertedProjection()
         // That switch belongs to the head unit, not to DiPlay: waking the stock map moves the
         // projection there and its session end turns the switch off, with no display callback and
         // no onStop here to notice. Watch the state for as long as this presentation is up.
-        projectionWatchdog.reset()
         projectionHandler.removeCallbacks(projectionTick)
         projectionHandler.postDelayed(projectionTick, PROJECTION_TICK_MILLIS)
     }
@@ -182,8 +182,13 @@ internal class ClusterMapPresentation(
     override fun onStop() {
         if (GeelyClusterDisplay.supported()) {
             projectionHandler.removeCallbacks(projectionTick)
+            // Hand the projection back only while DiPlay still holds it. The switch is head-unit-wide
+            // and the stock map drives it too, so when the map owns the cluster (the wheel key woke
+            // it) switching it off here would take the map off the cluster as well. Read it back
+            // first: the last readings decide, and this final one is the freshest evidence.
+            val handBack = projectionWatchdog.shouldHandBack(GeelyClusterProjection.status())
+            if (handBack) GeelyClusterProjection.set(false)
             projectionWatchdog.reset()
-            GeelyClusterProjection.set(false)
         }
         super.onStop()
     }

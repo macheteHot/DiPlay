@@ -17,20 +17,40 @@ import com.shilapi.xcertplay.airplay.SafeAreaRect
  * displayId 2, 1920x720, flags 0x8b (`FLAG_PRESENTATION` set), and an ordinary third-party
  * `Presentation` becomes that display's focused window and renders.
  *
- * Selection is gated to this one device. Other ECARX firmware may expose a differently sized
+ * Selection is gated to this one head unit. Other ECARX firmware may expose a differently sized
  * or non-public cluster, and picking the wrong panel would put the map on a passenger screen.
- * The device name only admits the route; the display still has to look like this cluster.
+ * The identifiers only admit the route; the display still has to look like this cluster.
  */
 internal object GeelyClusterDisplay {
 
+    /** Qualcomm's generic SA8155 board name: several brands' head units report it. */
     private const val DEVICE = "msmnile_gvmq"
+
+    /** Product code of the head unit this route was measured on. */
+    private const val PRODUCT = "geely_fx11"
+
+    /** Model name that head unit reports. */
+    private const val MODEL = "CS11_A4"
 
     /** The cluster stream is the panel's own size: the cluster scales nothing. */
     const val STREAM_WIDTH = 1920
     const val STREAM_HEIGHT = 720
 
-    /** The one head unit where this cluster route has been measured. */
-    fun supported(device: String = Build.DEVICE): Boolean = device == DEVICE
+    /**
+     * The one car where this cluster route has been measured. All three identifiers are required:
+     * `msmnile_gvmq` alone is Qualcomm's generic SA8155 board name, which other brands' head units
+     * report too, and on those the DIM services either do not exist or mean something else. The
+     * product and model identify the car, the same identifiers the wheel-key support uses
+     * (`GeelyHeadUnit`). Values are compared without case, because the build fields are not
+     * guaranteed to be lower case.
+     */
+    fun supported(
+        device: String = Build.DEVICE,
+        product: String = Build.PRODUCT,
+        model: String = Build.MODEL,
+    ): Boolean = device.equals(DEVICE, ignoreCase = true) &&
+        product.equals(PRODUCT, ignoreCase = true) &&
+        model.equals(MODEL, ignoreCase = true)
 
     /**
      * The cluster is the non-default presentation panel at the stream size. Its name is a

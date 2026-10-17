@@ -458,7 +458,9 @@ class CarPlayHostActivity : ComponentActivity() {
             clusterTurnGuidance = guidance
             // The cluster's own navigation area reads the same guidance the turn card draws.
             if (AirPlayPersistence.loadGeelyDimNavi(this)) {
-                com.shilapi.xcertplay.hud.GeelyDimNavi.update(guidance)
+                // Nothing on the cluster until the iPhone's picture is actually rendering.
+                val rendered = SCREEN_TYPE_MAIN in activeScreenStreamTypes
+                com.shilapi.xcertplay.hud.GeelyDimNavi.update(if (rendered) guidance else null)
             }
             applyClusterTurnOverlay()
         }
@@ -6418,6 +6420,13 @@ class CarPlayHostActivity : ComponentActivity() {
         return total / event.pointerCount
     }
 
+    /** The cluster navigation area follows the iPhone's main picture: nothing before it renders. */
+    private fun refreshDimNavi() {
+        if (!AirPlayPersistence.loadGeelyDimNavi(this)) return
+        val rendered = SCREEN_TYPE_MAIN in activeScreenStreamTypes
+        com.shilapi.xcertplay.hud.GeelyDimNavi.update(if (rendered) clusterTurnGuidance else null)
+    }
+
     private fun onScreenStreamStateChanged(generation: Int, type: Int, active: Boolean) {
         runOnUiThread {
             if (shuttingDown.get() || generation != restartGeneration) return@runOnUiThread
@@ -6427,6 +6436,7 @@ class CarPlayHostActivity : ComponentActivity() {
             } else {
                 activeScreenStreamTypes.remove(type)
             }
+            if (type == SCREEN_TYPE_MAIN) refreshDimNavi()
             if (type == SCREEN_TYPE_ALT) {
                 Log.i(ClusterMapPresentation.TAG, "cluster stream active=$active")
                 appendLog("Cluster map: stream active=$active")

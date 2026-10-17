@@ -36,6 +36,7 @@ object GeelyDimNavi {
     private const val TAG = "lynkPlay-DimNavi"
     private const val CLS_DIM = "com.ecarx.xui.adaptapi.diminteraction.DimInteraction"
     private const val CLS_INFO = "com.ecarx.xui.adaptapi.diminteraction.INaviInteraction\$INavigationInfo"
+    private const val CLS_LANE = "com.ecarx.xui.adaptapi.diminteraction.INaviInteraction\$ILaneInfo"
     private const val PERIOD_MILLIS = 1_000L
 
     private val executor = Executors.newSingleThreadScheduledExecutor { task ->
@@ -44,9 +45,11 @@ object GeelyDimNavi {
     private val lock = Any()
     private var navi: Any? = null
     private var info: Any? = null
+    private var laneClass: Class<*>? = null
     private var tick: ScheduledFuture<*>? = null
 
     @Volatile private var latest: ClusterTurnGuidance? = null
+    @Volatile private var lanes: List<com.shilapi.xcertplay.iap2.message.LaneGuidanceLane> = emptyList()
     @Volatile private var started = false
 
     /** True on the one head unit whose DIM interaction API was measured (issue #3). */
@@ -79,6 +82,11 @@ object GeelyDimNavi {
         if (guidance == null) endRoute() else beginRoute()
     }
 
+    /** The lane guidance to draw under the turn, from iAP2 0x5204; empty clears the lane area. */
+    fun updateLanes(lanes: List<com.shilapi.xcertplay.iap2.message.LaneGuidanceLane>) {
+        this.lanes = lanes
+    }
+
     /** Ends the route and releases the DIM session. Safe to call repeatedly. */
     @Synchronized
     fun stop() {
@@ -87,6 +95,8 @@ object GeelyDimNavi {
         endRoute()
         navi = null
         info = null
+        laneClass = null
+        lanes = emptyList()
         Log.i(TAG, "cluster navigation area released")
     }
 
@@ -129,6 +139,7 @@ object GeelyDimNavi {
         val dim = dimClass.getMethod("create", Context::class.java).invoke(null, context) ?: error("create returned null")
         val navi = dim.javaClass.getMethod("getNaviInteraction").invoke(dim) ?: error("no navi interaction")
         info = Proxy.newProxyInstance(infoClass.classLoader, arrayOf(infoClass), InfoHandler())
+        laneClass = Class.forName(CLS_LANE, false, GeelyDimNavi::class.java.classLoader)
         return navi
     }
 
@@ -143,6 +154,7 @@ object GeelyDimNavi {
         guidance.remainingSeconds?.let { call(navi, "updateETA", it.toInt()) }
         if (guidance.road.isNotEmpty()) call(navi, "updateNextGuidancePointName", guidance.road)
         call(navi, "updateTurnByTurnArrow", GeelyTurnId.forManeuver(guidance.icon, guidance.roundaboutExit))
+        pushLanes(navi)
         arrivalLabel(guidance)?.let { arrival ->
             val extension = Bundle().apply {
                 putString("KEY_NAVI_INFO_ESTIMATED_ARRIVAL_TIME", arrival)
@@ -167,6 +179,42 @@ object GeelyDimNavi {
             calendar.get(java.util.Calendar.HOUR_OF_DAY),
             calendar.get(java.util.Calendar.MINUTE),
         )
+    }
+
+    /** The lane strip as the car's own `ILaneInfo[]`; nothing is sent when there are no lanes. */
+    private fun pushLanes(navi: Any) {
+        val current = lanes
+        if (current.isEmpty()) return
+        val type = laneClass ?: return
+        val array = java.lang.reflect.Array.newInstance(type, current.size)
+        current.forEachIndexed { position, lane ->
+            val icon = GeelyLaneIcon.forLane(lane)
+            val proxy = Proxy.newProxyInstance(type.classLoader, arrayOf(type)) { proxy, method, args ->
+                when (method.name) {
+                    "getLaneNumber" -> lane.index + 1
+                    "getLaneBackIconId" -> icon
+                    "getLaneBackIcon" -> null
+                    "toString" -> "Lane(${lane.index},$icon)"
+                    "hashCode" -> lane.index
+                    "equals" -> proxy === args?.firstOrNull()
+                    else -> defaultValue(method.returnType)
+                }
+            }
+            java.lang.reflect.Array.set(array, position, proxy)
+        }
+        call(navi, "updateLaneInfo", array)
+    }
+
+    private fun defaultValue(type: Class<*>): Any? = when (type) {
+        Boolean::class.javaPrimitiveType -> false
+        Int::class.javaPrimitiveType -> 0
+        Long::class.javaPrimitiveType -> 0L
+        Float::class.javaPrimitiveType -> 0f
+        Double::class.javaPrimitiveType -> 0.0
+        Short::class.javaPrimitiveType -> 0.toShort()
+        Byte::class.javaPrimitiveType -> 0.toByte()
+        Char::class.javaPrimitiveType -> '\u0000'
+        else -> null
     }
 
     private fun call(target: Any?, name: String, vararg arguments: Any?): Any? {
@@ -214,20 +262,8 @@ object GeelyDimNavi {
                 "toString" -> "GeelyDimNavi"
                 "hashCode" -> GeelyTurnId.UNKNOWN
                 "equals" -> proxy === args?.firstOrNull()
-                else -> defaultValue(method.returnType)
+                else -> GeelyDimNavi.defaultValue(method.returnType)
             }
-        }
-
-        private fun defaultValue(type: Class<*>): Any? = when (type) {
-            Boolean::class.javaPrimitiveType -> false
-            Int::class.javaPrimitiveType -> 0
-            Long::class.javaPrimitiveType -> 0L
-            Float::class.javaPrimitiveType -> 0f
-            Double::class.javaPrimitiveType -> 0.0
-            Short::class.javaPrimitiveType -> 0.toShort()
-            Byte::class.javaPrimitiveType -> 0.toByte()
-            Char::class.javaPrimitiveType -> '\u0000'
-            else -> null
         }
     }
 }

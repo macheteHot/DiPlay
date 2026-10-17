@@ -24,6 +24,7 @@ object CarPlayGlance {
         val playing: Boolean = false,
     )
 
+    private const val LANE_GUIDANCE_UPDATE = 0x5204
     private val route = BydHudRouteState()
     private val song = ClusterSongState()
     private var connected = false
@@ -31,6 +32,9 @@ object CarPlayGlance {
 
     /** Called with each new snapshot, on the thread that changed it. */
     @Volatile var listener: ((Snapshot) -> Unit)? = null
+
+    /** Lane guidance from 0x5204, on the iAP2 thread; empty when the lane strip goes away. */
+    @Volatile var laneListener: ((List<com.shilapi.xcertplay.iap2.message.LaneGuidanceLane>) -> Unit)? = null
 
     /** Refresh time-dependent guidance even when no new metadata frame has arrived. */
     fun snapshot(): Snapshot {
@@ -40,6 +44,13 @@ object CarPlayGlance {
     }
 
     fun onFrame(frame: Iap2Frame) {
+        if (frame.messageId == LANE_GUIDANCE_UPDATE) {
+            // Lane guidance is a side channel: parse it, hand it to the cluster output, and leave
+            // the route/now-playing state alone.
+            val lanes = com.shilapi.xcertplay.iap2.message.Iap2LaneGuidance.parse(frame.payload)
+            laneListener?.invoke(lanes)
+            return
+        }
         val changed = synchronized(this) {
             when (frame.messageId) {
                 BydHudRouteState.ROUTE_GUIDANCE_UPDATE, BydHudRouteState.ROUTE_GUIDANCE_MANEUVER_UPDATE ->

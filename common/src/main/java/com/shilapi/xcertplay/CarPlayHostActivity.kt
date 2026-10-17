@@ -1106,6 +1106,9 @@ class CarPlayHostActivity : ComponentActivity() {
         if (AirPlayPersistence.loadGeelyDimNavi(this)) {
             com.shilapi.xcertplay.hud.GeelyDimNavi.start(applicationContext)
         }
+        com.shilapi.xcertplay.glance.CarPlayGlance.laneListener = { lanes ->
+            runOnUiThread { com.shilapi.xcertplay.hud.GeelyDimNavi.updateLanes(lanes) }
+        }
         logThemeState(ThemeModeDiagnostics.Source.START, resources.configuration)
         mainHandler.removeCallbacks(pollConfiguration)
         mainHandler.post(pollConfiguration)
@@ -1899,6 +1902,7 @@ class CarPlayHostActivity : ComponentActivity() {
         AirPlayPersistence.overlaySettingsListener = null
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setTurnOverlayListener(null)
         com.shilapi.xcertplay.hud.GeelyDimNavi.stop()
+        com.shilapi.xcertplay.glance.CarPlayGlance.laneListener = null
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterNaviModeListener(null)
         clusterMonitor?.stop()
         getSystemService(android.hardware.display.DisplayManager::class.java)

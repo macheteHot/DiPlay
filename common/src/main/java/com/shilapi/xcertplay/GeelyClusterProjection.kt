@@ -95,6 +95,11 @@ internal object GeelyClusterProjection {
     fun releaseStale(context: Context) {
         if (heldInProcess) return
         if (!AirPlayPersistence.loadClusterProjectionHeld(context)) return
+        // DiPlay still shows the cluster map: it asserts the projection again as soon as the session
+        // is up, and that new frame replaces any leftover. Handing the switch back first would take
+        // the stock map off the cluster when the wheel key owns it, which is the case this route
+        // keeps out of.
+        if (AirPlayPersistence.loadClusterMapEnabled(context)) return
         if (!runCatching { GeelyClusterDisplay.supported() }.getOrDefault(false)) {
             // Another head unit restored settings that carry this claim: the switch is not ours there.
             AirPlayPersistence.saveClusterProjectionHeld(context, false)

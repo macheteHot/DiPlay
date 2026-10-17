@@ -15,7 +15,7 @@ android {
 
     defaultConfig {
         applicationId = "com.shihab.diplay"
-        minSdk = 25
+        minSdk = 24
         targetSdk = 37
         // The lynk build carries upstream's 0.2.20 content plus everything merged after the
         // v0.2.20 preview, so it must not claim that preview's version.

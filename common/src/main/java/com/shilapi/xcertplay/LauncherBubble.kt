@@ -26,7 +26,7 @@ import android.widget.Toast
 import androidx.core.content.ContextCompat
 import com.shilapi.xcertplay.glance.CarPlayGlance
 import com.shilapi.xcertplay.host.R
-import kotlin.math.abs
+import kotlin.math.roundToInt
 
 /**
  * The app logo as a bubble over the launcher's home screen: a tap comes back to CarPlay, a drag
@@ -35,34 +35,27 @@ import kotlin.math.abs
  * a prompt above the bubble.
  *
  * The bubble shows while no DiPlay screen is in front and goes as soon as one is, so it never
- * covers CarPlay itself. Needs "display over other apps" (SYSTEM_ALERT_WINDOW). The head unit's
- * launcher only hosts its own cards, so an app-drawn bubble is the way in (see
- * docs/LAUNCHER_INTEGRATION.md).
+ * covers CarPlay itself. It needs "display over other apps" (SYSTEM_ALERT_WINDOW), which the
+ * dashboard map card already declares. It is drawn by the app rather than added to the launcher, so
+ * it also works on a head unit whose launcher hosts only its own cards and would never list an
+ * installed app (see #650 and docs/LAUNCHER_INTEGRATION.md).
  */
 internal object LauncherBubble {
     const val TAG = "lynkPlay-Bubble"
 
     private const val SHOW_DELAY_MILLIS = 600L
     private const val LONG_PRESS_MILLIS = 900L
-    private const val MARGIN_DP = 24
-    private const val DRAG_SLOP_DP = 6
     private const val CORNER_SHARE = 0.12f
     private const val LABEL_GAP_DP = 8
-
-    /** Bubble height as a share of the screen height; the width follows the logo's own ratio. */
-    val sizePercents: List<Int> = listOf(8, 10, 12, 16)
-    const val DEFAULT_SIZE_PERCENT = 10
-    private const val LOGO_RATIO = 1.75f
-    private const val MIN_HEIGHT_DP = 36
 
     private const val PREFS = "diplay_launcher_bubble"
     private const val KEY_X = "x"
     private const val KEY_Y = "y"
     private const val KEY_LOCKED = "locked"
 
-    /** Keeps a saved or hand-edited size on the list the settings offer. */
-    fun snapSizePercent(percent: Int): Int =
-        sizePercents.minByOrNull { abs(it - percent) } ?: DEFAULT_SIZE_PERCENT
+    /** The app logo the launcher shows for this app. */
+    private fun appLogo(context: Context): Drawable? =
+        ContextCompat.getDrawable(context, R.drawable.ic_carplay_launcher)
 
     private val main = Handler(Looper.getMainLooper())
     private var appContext: Context? = null
@@ -102,15 +95,14 @@ internal object LauncherBubble {
         val metrics = context.resources.displayMetrics
         val density = metrics.density
         val sizePercent = AirPlayPersistence.loadLauncherBubbleSize(context)
-        val logo = ContextCompat.getDrawable(context, R.drawable.ic_carplay_launcher)
-        val ratio = logo?.takeIf { it.intrinsicHeight > 0 }
+        val logo = appLogo(context)
+        val logoRatio = logo?.takeIf { it.intrinsicHeight > 0 }
             ?.let { it.intrinsicWidth.toFloat() / it.intrinsicHeight }
-            ?: LOGO_RATIO
-        val height = (metrics.heightPixels * sizePercent / 100)
-            .coerceAtLeast((MIN_HEIGHT_DP * density).toInt())
-        val width = (height * ratio).toInt()
-        val margin = (MARGIN_DP * density).toInt()
-        val gap = (LABEL_GAP_DP * density).toInt()
+            ?: LauncherBubbleLayout.DEFAULT_ICON_RATIO
+        val initial = LauncherBubbleLayout.initialBox(metrics.widthPixels, metrics.heightPixels, sizePercent, logoRatio, density)
+        val width = initial.width
+        val height = initial.height
+        val gap = (LABEL_GAP_DP * density).roundToInt()
         val prefs = context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
         val lockPrompt = context.getString(R.string.settings_launcher_bubble_hold_to_lock)
         val unlockPrompt = context.getString(R.string.settings_launcher_bubble_hold_to_unlock)
@@ -121,10 +113,13 @@ internal object LauncherBubble {
 
         val params = windowParams(width, height)
         params.gravity = Gravity.TOP or Gravity.START
-        params.x = prefs.getInt(KEY_X, metrics.widthPixels - width - margin)
-            .coerceIn(0, (metrics.widthPixels - width).coerceAtLeast(0))
-        params.y = prefs.getInt(KEY_Y, (metrics.heightPixels * 0.45f).toInt())
-            .coerceIn(0, (metrics.heightPixels - height).coerceAtLeast(0))
+        val saved = LauncherBubbleLayout.clamp(
+            LauncherBubbleLayout.Box(width, height, prefs.getInt(KEY_X, initial.x), prefs.getInt(KEY_Y, initial.y)),
+            metrics.widthPixels,
+            metrics.heightPixels,
+        )
+        params.x = saved.x
+        params.y = saved.y
 
         var downRawX = 0f
         var downRawY = 0f
@@ -134,7 +129,7 @@ internal object LauncherBubble {
         var longPressFired = false
         var press: ValueAnimator? = null
         var label: BubbleLabel? = null
-        val dragSlop = (DRAG_SLOP_DP * density).toInt()
+        val dragSlop = (LauncherBubbleLayout.DRAG_SLOP_DP * density).roundToInt()
 
         fun hideLabel() {
             label?.let { view -> runCatching { windows.removeViewImmediate(view) } }
@@ -144,13 +139,18 @@ internal object LauncherBubble {
         fun showLabel(message: String) {
             hideLabel()
             val view = BubbleLabel(context, message, height)
+            val place = LauncherBubbleLayout.labelBox(
+                LauncherBubbleLayout.Box(width, height, params.x, params.y),
+                view.pillWidth,
+                view.pillHeight,
+                gap,
+                metrics.widthPixels,
+            )
             val labelParams = windowParams(view.pillWidth, view.pillHeight).apply {
                 gravity = Gravity.TOP or Gravity.START
                 flags = flags or WindowManager.LayoutParams.FLAG_NOT_TOUCHABLE
-                x = (params.x + (width - view.pillWidth) / 2)
-                    .coerceIn(0, (metrics.widthPixels - view.pillWidth).coerceAtLeast(0))
-                val above = params.y - view.pillHeight - gap
-                y = if (above >= 0) above else params.y + height + gap
+                x = place.x
+                y = place.y
             }
             runCatching { windows.addView(view, labelParams) }
                 .onSuccess { label = view }
@@ -213,7 +213,7 @@ internal object LauncherBubble {
                 MotionEvent.ACTION_MOVE -> {
                     val dx = (event.rawX - downRawX).toInt()
                     val dy = (event.rawY - downRawY).toInt()
-                    if (abs(dx) > dragSlop || abs(dy) > dragSlop) {
+                    if (LauncherBubbleLayout.isDrag(dx, dy, dragSlop)) {
                         // A move is never a long press, and a locked bubble stays where it is.
                         stopPress()
                         if (!locked) {

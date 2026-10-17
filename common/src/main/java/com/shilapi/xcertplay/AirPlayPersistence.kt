@@ -895,7 +895,7 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_LAUNCHER_MAP_SHARING, enabled).apply()
     }
 
-    /** A round shortcut over the launcher's home screen that comes back to CarPlay. */
+    /** A short bubble over the launcher's home screen that comes back to CarPlay (LauncherBubble). */
     fun loadLauncherBubble(context: Context): Boolean =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_LAUNCHER_BUBBLE, false)
 
@@ -904,14 +904,14 @@ object AirPlayPersistence {
     }
 
     /** Bubble height as a share of the screen height; the bubble width follows the logo's ratio. */
-    fun loadLauncherBubbleSize(context: Context): Int = LauncherBubble.snapSizePercent(
+    fun loadLauncherBubbleSize(context: Context): Int = LauncherBubbleLayout.snapSizePercent(
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-            .getInt(KEY_LAUNCHER_BUBBLE_SIZE, LauncherBubble.DEFAULT_SIZE_PERCENT),
+            .getInt(KEY_LAUNCHER_BUBBLE_SIZE, LauncherBubbleLayout.DEFAULT_SIZE_PERCENT),
     )
 
     fun saveLauncherBubbleSize(context: Context, percent: Int) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit()
-            .putInt(KEY_LAUNCHER_BUBBLE_SIZE, LauncherBubble.snapSizePercent(percent)).apply()
+            .putInt(KEY_LAUNCHER_BUBBLE_SIZE, LauncherBubbleLayout.snapSizePercent(percent)).apply()
     }
 
     fun loadClusterSpeedometerEnabled(context: Context): Boolean =

@@ -298,9 +298,16 @@ final class WifiApi {
     static Class<?> load(String name) {
         try {
             return Class.forName(name, false, WifiApi.class.getClassLoader());
-        } catch (Throwable error) {
-            ProbeLog.i("Class.forName(" + name + ") -> " + ProbeLog.describe(error));
-            return null;
+        } catch (Throwable appError) {
+            // Boot-classpath classes are reached through the bootstrap loader, which is not the app
+            // one; try it before calling the class unreachable.
+            try {
+                return Class.forName(name, false, null);
+            } catch (Throwable bootError) {
+                ProbeLog.i("Class.forName(" + name + ") -> app: " + ProbeLog.describe(appError)
+                        + "; boot: " + ProbeLog.describe(bootError));
+                return null;
+            }
         }
     }
 

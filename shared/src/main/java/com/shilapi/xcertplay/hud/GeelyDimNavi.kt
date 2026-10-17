@@ -143,6 +143,30 @@ object GeelyDimNavi {
         guidance.remainingSeconds?.let { call(navi, "updateETA", it.toInt()) }
         if (guidance.road.isNotEmpty()) call(navi, "updateNextGuidancePointName", guidance.road)
         call(navi, "updateTurnByTurnArrow", GeelyTurnId.forManeuver(guidance.icon, guidance.roundaboutExit))
+        arrivalLabel(guidance)?.let { arrival ->
+            val extension = Bundle().apply {
+                putString("KEY_NAVI_INFO_ESTIMATED_ARRIVAL_TIME", arrival)
+            }
+            call(navi, "updateExtensionInfo", extension)
+        }
+    }
+
+    /**
+     * The arrival as `HH:mm`, which is what the DIM side reads from
+     * `KEY_NAVI_INFO_ESTIMATED_ARRIVAL_TIME`; `updateETA` only carries the remaining seconds and the
+     * cluster shows 00:00 in its arrival field without this.
+     */
+    private fun arrivalLabel(guidance: ClusterTurnGuidance): String? {
+        val epochSeconds = guidance.arrivalEpochSeconds
+            ?: guidance.remainingSeconds?.let { System.currentTimeMillis() / 1000 + it }
+            ?: return null
+        val calendar = java.util.Calendar.getInstance().apply { timeInMillis = epochSeconds * 1000 }
+        return String.format(
+            java.util.Locale.CHINA,
+            "%02d:%02d",
+            calendar.get(java.util.Calendar.HOUR_OF_DAY),
+            calendar.get(java.util.Calendar.MINUTE),
+        )
     }
 
     private fun call(target: Any?, name: String, vararg arguments: Any?): Any? {

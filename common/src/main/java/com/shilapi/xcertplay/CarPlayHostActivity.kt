@@ -1298,6 +1298,12 @@ class CarPlayHostActivity : ComponentActivity() {
             ensureDiLink51ClusterPresentation(theme)
             return
         }
+        // Nothing on the cluster, not even the waiting spinner, until the iPhone's main picture
+        // is actually rendering. The main stream's start calls back here.
+        if (SCREEN_TYPE_MAIN !in activeScreenStreamTypes) {
+            dismissClusterPresentation()
+            return
+        }
         if (clusterPresentation != null) return
         val display = ClusterMapPresentation.findDisplay(this, theme) ?: run {
             appendLog("Cluster map: no cluster projection display among ${ClusterMapPresentation.describeDisplays(this)}")
@@ -6436,7 +6442,10 @@ class CarPlayHostActivity : ComponentActivity() {
             } else {
                 activeScreenStreamTypes.remove(type)
             }
-            if (type == SCREEN_TYPE_MAIN) refreshDimNavi()
+            if (type == SCREEN_TYPE_MAIN) {
+                refreshDimNavi()
+                if (active) ensureClusterPresentation()
+            }
             if (type == SCREEN_TYPE_ALT) {
                 Log.i(ClusterMapPresentation.TAG, "cluster stream active=$active")
                 appendLog("Cluster map: stream active=$active")

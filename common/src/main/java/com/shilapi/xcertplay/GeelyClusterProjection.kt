@@ -1,5 +1,6 @@
 package com.shilapi.xcertplay
 
+import android.content.Context
 import android.os.IBinder
 import android.os.Parcel
 import android.util.Log
@@ -24,6 +25,9 @@ internal object GeelyClusterProjection {
     private const val DESCRIPTOR = "ecarx.dimprotocol.custom.service.IDimNaviService"
     private const val NOTIFY_PROJECT_SCREEN_SWITCH = 9
     private const val GET_PROJECT_SCREEN_STATUS = 10
+
+    /** Whether this process asked for the projection and has not handed it back. */
+    @Volatile private var heldInProcess = false
 
     /**
      * Reads the head unit's projection state, or null when the answer cannot be obtained (service not
@@ -53,8 +57,12 @@ internal object GeelyClusterProjection {
     /**
      * Asks the head unit to show (or stop showing) the projected cluster. Returns whether the
      * call reached the service; a missing binder is not an error worth failing over.
+     *
+     * When [context] is given, the claim is also written to disk while the switch is on: the process
+     * can be killed without running `onStop`, and the next run hands the switch back then
+     * ([releaseStale]).
      */
-    fun set(on: Boolean): Boolean {
+    fun set(on: Boolean, context: Context? = null): Boolean {
         val binder = service() ?: run {
             Log.i(TAG, "dim projection: DimNaviService is not registered")
             return false
@@ -67,6 +75,8 @@ internal object GeelyClusterProjection {
             binder.transact(NOTIFY_PROJECT_SCREEN_SWITCH, data, reply, 0)
             reply.readException()
             Log.i(TAG, "dim projection: notifyDimProjectScreenSwitch($on) ok")
+            if (context != null) AirPlayPersistence.saveClusterProjectionHeld(context, on)
+            heldInProcess = on
             true
         } catch (error: Throwable) {
             Log.w(TAG, "dim projection: notifyDimProjectScreenSwitch($on) failed", error)
@@ -74,6 +84,36 @@ internal object GeelyClusterProjection {
         } finally {
             reply.recycle()
             data.recycle()
+        }
+    }
+
+    /**
+     * Hands back a projection a previous process left on, so a kill that skipped `onStop` does not
+     * leave the cluster showing DiPlay's last frame. Only acts when this process has not asked for
+     * the projection itself, and clears the claim without touching the switch when it reads off.
+     */
+    fun releaseStale(context: Context) {
+        if (heldInProcess) return
+        if (!AirPlayPersistence.loadClusterProjectionHeld(context)) return
+        // DiPlay still shows the cluster map: it asserts the projection again as soon as the session
+        // is up, and that new frame replaces any leftover. Handing the switch back first would take
+        // the stock map off the cluster when the wheel key owns it, which is the case this route
+        // keeps out of.
+        if (AirPlayPersistence.loadClusterMapEnabled(context)) return
+        if (!runCatching { GeelyClusterDisplay.supported() }.getOrDefault(false)) {
+            // Another head unit restored settings that carry this claim: the switch is not ours there.
+            AirPlayPersistence.saveClusterProjectionHeld(context, false)
+            return
+        }
+        when (status()) {
+            true -> {
+                Log.i(TAG, "dim projection: handing back a projection left on by a previous run")
+                set(false, context)
+            }
+            // The switch is already off, or the car is not reachable this time; an unreadable
+            // answer keeps the claim so the next run tries again.
+            false -> AirPlayPersistence.saveClusterProjectionHeld(context, false)
+            null -> Unit
         }
     }
 

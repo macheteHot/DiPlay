@@ -386,6 +386,9 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
         rememberLaunchAppearance()
         languagePreferenceAtCreate = AppLocale.preference(this)
         com.shilapi.xcertplay.hud.BydNavigationOutputs.onAppOpened(applicationContext)
+        // A previous run may have been killed while it held the cluster projection; hand it back
+        // before showing anything, so the cluster is not left on DiPlay's last frame.
+        GeelyClusterProjection.releaseStale(applicationContext)
         PhoneAudioRoute.attach(applicationContext)
         WindowCompat.setDecorFitsSystemWindows(window, false)
         if (Build.VERSION.SDK_INT >= 28) {
@@ -2194,6 +2197,18 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 clusterMapEnabled) {
                 AirPlayPersistence.saveClusterMapEnabled(this, it)
                 render()
+            }
+            // The cluster's own navigation area instead of the mirrored map: the same guidance the
+            // turn card draws, pushed through the car's DIM interaction API (measured, issue #3).
+            if (com.shilapi.xcertplay.hud.GeelyDimNavi.supported()) {
+                toggle(card, getString(R.string.settings_geely_dim_navi),
+                    getString(R.string.settings_geely_dim_navi_description),
+                    AirPlayPersistence.loadGeelyDimNavi(this)) { enabled ->
+                    AirPlayPersistence.saveGeelyDimNavi(this, enabled)
+                    if (enabled) com.shilapi.xcertplay.hud.GeelyDimNavi.start(applicationContext)
+                    else com.shilapi.xcertplay.hud.GeelyDimNavi.stop()
+                    render()
+                }
             }
             if (clusterMapEnabled) {
                 clusterSpeedometerControls(card)

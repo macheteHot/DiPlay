@@ -912,4 +912,6 @@
     <string name="black_corner_overlay_off">Выкл.</string>
     <string name="black_corner_overlay_value">%1$d dp</string>
     <string name="iphone_corner_mask_mode">Маска iPhone (экспериментально)</string>
+    <string name="settings_geely_dim_navi">Область навигации приборной панели (экспериментально)</string>
+    <string name="settings_geely_dim_navi_description">Показывает следующий поворот, расстояние и дорогу CarPlay в собственной области навигации приборной панели вместо зеркалирования карты. Нужна служба DIM автомобиля; другие головные устройства не меняются.</string>
 </resources>

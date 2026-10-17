@@ -972,4 +972,6 @@
     <string name="black_corner_overlay_off">关闭</string>
     <string name="black_corner_overlay_value">%1$d dp</string>
     <string name="iphone_corner_mask_mode">iPhone 遮罩（实验性）</string>
+    <string name="settings_geely_dim_navi">仪表导航区（实验性）</string>
+    <string name="settings_geely_dim_navi_description">在仪表自带的导航区显示 CarPlay 的下一个转向、距离和道路，而不是在那里镜像地图。使用车机的 DIM 交互服务；其他车机不受影响。</string>
 </resources>

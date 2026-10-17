@@ -1,6 +1,7 @@
 package com.shilapi.xcertplay
 
 import android.content.Context
+import android.graphics.Bitmap
 import android.graphics.Canvas
 import android.graphics.Color
 import android.graphics.Paint
@@ -241,18 +242,37 @@ internal class ClusterTurnCardView(context: Context) : View(context) {
         }
     }
 
-    private fun glyphRes(icon: Int): Int = when (icon) {
-        2 -> R.drawable.ic_turn_card_turn_left
-        3 -> R.drawable.ic_turn_card_turn_right
-        4 -> R.drawable.ic_turn_card_turn_slight_left
-        5 -> R.drawable.ic_turn_card_turn_slight_right
-        6 -> R.drawable.ic_turn_card_turn_sharp_left
-        7 -> R.drawable.ic_turn_card_turn_sharp_right
-        8 -> R.drawable.ic_turn_card_u_turn_left
-        19 -> R.drawable.ic_turn_card_u_turn_right
-        11, 12, 17, 18 -> R.drawable.ic_turn_card_roundabout_right
-        15 -> R.drawable.ic_turn_card_sports_score
-        else -> R.drawable.ic_turn_card_straight
+    companion object {
+        /** AMap NEW_ICON -> DiPlay's turn glyph; also used when the cluster gets a bitmap. */
+        private fun glyphRes(icon: Int): Int = when (icon) {
+            2 -> R.drawable.ic_turn_card_turn_left
+            3 -> R.drawable.ic_turn_card_turn_right
+            4 -> R.drawable.ic_turn_card_turn_slight_left
+            5 -> R.drawable.ic_turn_card_turn_slight_right
+            6 -> R.drawable.ic_turn_card_turn_sharp_left
+            7 -> R.drawable.ic_turn_card_turn_sharp_right
+            8 -> R.drawable.ic_turn_card_u_turn_left
+            19 -> R.drawable.ic_turn_card_u_turn_right
+            11, 12, 17, 18 -> R.drawable.ic_turn_card_roundabout_right
+            15 -> R.drawable.ic_turn_card_sports_score
+            else -> R.drawable.ic_turn_card_straight
+        }
+
+        /**
+         * The turn glyph as a white, transparent bitmap for the car's own DIM navigation area.
+         * The cluster has no DiPlay icon vocabulary, so the picture carries the arrow itself.
+         */
+        fun arrowBitmap(context: Context, icon: Int, sizePx: Int): Bitmap? {
+            val drawable = androidx.core.content.ContextCompat.getDrawable(context, glyphRes(icon))
+                ?: return null
+            val size = sizePx.coerceAtLeast(1)
+            val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.ARGB_8888)
+            val canvas = Canvas(bitmap)
+            drawable.setBounds(0, 0, size, size)
+            drawable.setTint(android.graphics.Color.WHITE)
+            drawable.draw(canvas)
+            return bitmap
+        }
     }
 
     private fun distanceLabel(meters: Int): String = when {

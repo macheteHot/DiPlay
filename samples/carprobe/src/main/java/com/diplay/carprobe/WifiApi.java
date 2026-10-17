@@ -223,27 +223,7 @@ final class WifiApi {
 
     private static void readExternalWifi(Context context) {
         ProbeLog.i("-- " + CLS_EXTERNAL_WIFI + " --");
-        Class<?> cls = load(CLS_EXTERNAL_WIFI);
-        if (cls == null) {
-            return;
-        }
-        Object manager = null;
-        for (Method method : cls.getMethods()) {
-            if (!Modifier.isStatic(method.getModifiers()) || !method.getName().equals("create")) {
-                continue;
-            }
-            try {
-                Object result = method.getParameterCount() == 1
-                        ? method.invoke(null, context) : method.invoke(null, context, 0);
-                ProbeLog.i("ExternalWifiManager.create(" + method.getParameterCount() + " args) -> " + result);
-                if (result != null) {
-                    manager = result;
-                    break;
-                }
-            } catch (Throwable error) {
-                ProbeLog.i("ExternalWifiManager.create failed -> " + ProbeLog.describe(HudApi.unwrap(error)));
-            }
-        }
+        Object manager = externalWifi(context);
         if (manager == null) {
             ProbeLog.i("ExternalWifiManager.create returned null (stub or unsupported)");
             return;
@@ -253,12 +233,81 @@ final class WifiApi {
         }
     }
 
+    /** The adaptapi Wi-Fi wrapper, or null when its class or {@code create()} does not work here. */
+    private static Object externalWifi(Context context) {
+        Class<?> cls = load(CLS_EXTERNAL_WIFI);
+        if (cls == null) {
+            return null;
+        }
+        for (Method method : cls.getMethods()) {
+            if (!Modifier.isStatic(method.getModifiers()) || !method.getName().equals("create")) {
+                continue;
+            }
+            try {
+                Object result = method.getParameterCount() == 1
+                        ? method.invoke(null, context) : method.invoke(null, context, 0);
+                ProbeLog.i("ExternalWifiManager.create(" + method.getParameterCount() + " args) -> " + result);
+                if (result != null) {
+                    return result;
+                }
+            } catch (Throwable error) {
+                ProbeLog.i("ExternalWifiManager.create failed -> " + ProbeLog.describe(HudApi.unwrap(error)));
+            }
+        }
+        return null;
+    }
+
+    /**
+     * #2: can a normal app turn the Wi-Fi client on through the ECARX wrapper, without the driver
+     * opening Settings and without ADB? Both the wrapper's own answer and Settings.Global are
+     * reported before and after a wait, so a SecurityException, a silent no-op and a real change
+     * are told apart. Nothing else is touched, and the caller can switch it back the same way.
+     */
+    static void setClientWifi(Context context, boolean on) {
+        if (!SUPPORTED_DEVICE.equals(android.os.Build.DEVICE)) {
+            ProbeLog.i("gated: Build.DEVICE=" + android.os.Build.DEVICE + " != " + SUPPORTED_DEVICE
+                    + "; skipping Wi-Fi client write");
+            return;
+        }
+        ProbeLog.i("=== Wi-Fi client " + (on ? "on" : "off") + " (gated to " + SUPPORTED_DEVICE + ") ===");
+        ProbeLog.i("Settings.Global wifi_on before = " + globalWifiOn(context));
+        Object manager = externalWifi(context);
+        if (manager == null) {
+            ProbeLog.i("ExternalWifiManager unavailable; nothing tried");
+            return;
+        }
+        ProbeLog.i("isSupported -> " + invokeNoArg(manager, "isSupported"));
+        ProbeLog.i("isWifiEnabled before -> " + invokeNoArg(manager, "isWifiEnabled"));
+        ProbeLog.i("setWifiEnabled(" + on + ") -> " + invoke(manager, "setWifiEnabled", on));
+        sleep(4000);
+        ProbeLog.i("isWifiEnabled after -> " + invokeNoArg(manager, "isWifiEnabled"));
+        ProbeLog.i("Settings.Global wifi_on after = " + globalWifiOn(context));
+        interfaces();
+        ProbeLog.i("=== Wi-Fi client " + (on ? "on" : "off") + " done ===");
+    }
+
+    private static int globalWifiOn(Context context) {
+        try {
+            return android.provider.Settings.Global.getInt(
+                    context.getContentResolver(), "wifi_on", -1);
+        } catch (Throwable error) {
+            return -1;
+        }
+    }
+
     static Class<?> load(String name) {
         try {
             return Class.forName(name, false, WifiApi.class.getClassLoader());
-        } catch (Throwable error) {
-            ProbeLog.i("Class.forName(" + name + ") -> " + ProbeLog.describe(error));
-            return null;
+        } catch (Throwable appError) {
+            // Boot-classpath classes are reached through the bootstrap loader, which is not the app
+            // one; try it before calling the class unreachable.
+            try {
+                return Class.forName(name, false, null);
+            } catch (Throwable bootError) {
+                ProbeLog.i("Class.forName(" + name + ") -> app: " + ProbeLog.describe(appError)
+                        + "; boot: " + ProbeLog.describe(bootError));
+                return null;
+            }
         }
     }
 

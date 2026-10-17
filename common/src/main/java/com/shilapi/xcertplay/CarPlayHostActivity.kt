@@ -456,6 +456,13 @@ class CarPlayHostActivity : ComponentActivity() {
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
         runOnUiThread {
             clusterTurnGuidance = guidance
+            // The cluster's own navigation area reads the same guidance the turn card draws.
+            if (AirPlayPersistence.loadGeelyDimNavi(this)) {
+                val arrow = guidance?.let {
+                    ClusterTurnCardView.arrowBitmap(this, it.icon, dp(48))
+                }
+                com.shilapi.xcertplay.hud.GeelyDimNavi.update(guidance, arrow)
+            }
             applyClusterTurnOverlay()
         }
     }
@@ -1097,6 +1104,9 @@ class CarPlayHostActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         isActivityStarted = true
+        if (AirPlayPersistence.loadGeelyDimNavi(this)) {
+            com.shilapi.xcertplay.hud.GeelyDimNavi.start(applicationContext)
+        }
         logThemeState(ThemeModeDiagnostics.Source.START, resources.configuration)
         mainHandler.removeCallbacks(pollConfiguration)
         mainHandler.post(pollConfiguration)
@@ -1178,7 +1188,16 @@ class CarPlayHostActivity : ComponentActivity() {
         if (!menuOpen) temporarySystemBarsEnabled = AirPlayPersistence.loadTemporarySystemBars(this)
         settingsGestureHint?.text = settingsGestureHintText()
         ensureClusterPresentation()
-        AirPlayPersistence.overlaySettingsListener = { runOnUiThread { applyClusterTurnOverlay() } }
+        AirPlayPersistence.overlaySettingsListener = { runOnUiThread {
+            applyClusterTurnOverlay()
+            // The dashboard map switch belongs to the running session: turning it off stops the
+            // projection now instead of at the next connection, and turning it on shows it.
+            if (AirPlayPersistence.loadClusterMapEnabled(this@CarPlayHostActivity)) {
+                // Only build the presentation while this screen is up; a stopped screen creates
+                // it again on its own start.
+                if (isActivityStarted || clusterPresentation != null) ensureClusterPresentation()
+            } else dismissClusterPresentation()
+        } }
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setTurnOverlayListener(clusterTurnOverlayListener)
         mainHandler.removeCallbacks(refreshTurnOverlay)
         mainHandler.post(refreshTurnOverlay)
@@ -1874,6 +1893,7 @@ class CarPlayHostActivity : ComponentActivity() {
         delayedDoubleSiri = null
         AirPlayPersistence.overlaySettingsListener = null
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setTurnOverlayListener(null)
+        com.shilapi.xcertplay.hud.GeelyDimNavi.stop()
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterNaviModeListener(null)
         clusterMonitor?.stop()
         getSystemService(android.hardware.display.DisplayManager::class.java)

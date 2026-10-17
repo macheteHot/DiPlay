@@ -85,6 +85,13 @@ object AirPlayPersistence {
     private const val KEY_LOW_LATENCY_DECODER = "low_latency_decoder"
     private const val KEY_FPS_COUNTER = "fps_counter"
     private const val KEY_CLUSTER_MAP = "cluster_map_enabled"
+
+    /**
+     * The Geely cluster projection switch is DiPlay's right now. The switch belongs to the head unit
+     * and carries no owner, and the process can be killed without running `onStop`, so the claim is
+     * kept on disk and handed back by the next run ([GeelyClusterProjection.releaseStale]).
+     */
+    private const val KEY_CLUSTER_PROJECTION_HELD = "geely_cluster_projection_held"
     private const val KEY_ADB_CLUSTER_ACTIVITY = "adb_cluster_activity_enabled"
     private const val KEY_CENTER_MAP_OVERLAY = "center_map_overlay"
     private const val KEY_CENTER_MAP_AUTO_HIDE = "center_map_auto_hide"
@@ -92,6 +99,7 @@ object AirPlayPersistence {
     private const val KEY_LAUNCHER_BUBBLE = "launcher_bubble"
     private const val KEY_LAUNCHER_BUBBLE_SIZE = "launcher_bubble_size"
     private const val KEY_CLUSTER_MAP_SCALE = "cluster_map_scale_percent"
+    private const val KEY_GEELY_DIM_NAVI = "geely_dim_navi"
     private const val KEY_CLUSTER_CONTENT = "cluster_content"
     private const val KEY_CLUSTER_MARKER_X = "cluster_marker_horizontal_step"
     private const val KEY_CLUSTER_MARKER_Y = "cluster_marker_vertical_step"
@@ -873,6 +881,23 @@ object AirPlayPersistence {
 
     fun saveClusterMapEnabled(context: Context, enabled: Boolean) {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CLUSTER_MAP, enabled).apply()
+        // A running session applies the switch at once, without waiting for the next connection.
+        overlaySettingsListener?.invoke()
+    }
+
+    /** CarPlay's turns in the cluster's own navigation area (DIM interaction), not the mirrored map. */
+    fun loadGeelyDimNavi(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_GEELY_DIM_NAVI, false)
+
+    fun saveGeelyDimNavi(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_GEELY_DIM_NAVI, enabled).apply()
+    }
+
+    fun loadClusterProjectionHeld(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_CLUSTER_PROJECTION_HELD, false)
+
+    fun saveClusterProjectionHeld(context: Context, held: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CLUSTER_PROJECTION_HELD, held).apply()
     }
 
     /** The dashboard map as a card on the centre screen while DiPlay is in the background. */

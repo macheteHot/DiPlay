@@ -30,6 +30,7 @@
 | [`吉利地图HUD显示机制.md`](吉利地图HUD显示机制.md) | 车机自带高德地图（`com.geely.map`）如何把 HUD/副驾屏地图渲染进宿主 `Surface`（原厂 APK 分析见 [`extracted/`](extracted/README.md)） |
 | [`吉利仪表与HUD接入调研.md`](吉利仪表与HUD接入调研.md) | 第三方 App 能用的仪表/HUD 通道（DIM 导航协议、仪表 Presentation）与死路，含探针 App `samples/carprobe` 实测 |
 | [`吉利导航转向ID-turnId表.md`](吉利导航转向ID-turnId表.md) | 原厂地图/OneOS 导航服务 → 仪表/HUD 的**转向图标 ID（turnId 100~148）全表**，含换算公式与 Kotlin 常量 |
+| [`吉利导航车道图标ID-laneIconId表.md`](吉利导航车道图标ID-laneIconId表.md) | 同一链路的**车道图标 ID（laneIconId 0~62 / 71~83 / 95）全表**，区分 `LaneId` 与 `LaneIconId` |
 | [`headunit/`](headunit/README.md) | **车机整机系统逆向**（117 个 APK + framework JAR）：ECARX/德赛框架 API、VDBus、手机互联、投屏服务、键码/协议常量表 |
 
 ## 脚本

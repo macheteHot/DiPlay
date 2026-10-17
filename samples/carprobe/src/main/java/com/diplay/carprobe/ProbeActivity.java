@@ -725,7 +725,7 @@ public final class ProbeActivity extends Activity {
             switch (p[0]) {
                 case "help":
                     ProbeLog.i("commands: dim <0-3> | ar <0|1> | switchar <0|1> | guide | subscribe <0|1> "
-                            + "| inspect | cycle | hudapi | hudimpl | ambli | ambmusic | ambrestore | ambprobe | ambmarquee | ambsteady | ambwheel | ambspectrum | ambvisualizer | ambforcemusic | wifi | wifibringup | wifiset [on|off] | usbhal | dimapi | naviserv [1] | service <type> | permservice <type> "
+                            + "| inspect | cycle | hudapi | hudimpl | ambli | ambmusic | ambrestore | ambprobe | ambmarquee | ambsteady | ambwheel | ambspectrum | ambvisualizer | ambforcemusic | wifi | wifibringup | wifiset [on|off] | usbhal | dimapi | dimnav | naviserv [1] | service <type> | permservice <type> "
                             + "| simnavi | stopnavi | dimnavi <start|tick|stop> | dimproj <0|1> "
                             + "| navistart [naviType] | route [action] [lat] [lng] [name] "
                             + "| hold <turn> <dist> | unhold | binddim "
@@ -868,6 +868,9 @@ public final class ProbeActivity extends Activity {
                     break;
                 case "dimapi":
                     DimApi.dump(this);
+                    break;
+                case "dimnav":
+                    DimApi.pushTest(this);
                     break;
                 case "usbhal":
                     UsbApi.dump(this);

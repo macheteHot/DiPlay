@@ -17,6 +17,7 @@ final class DimApi {
 
     static final String CLS_DIM = "com.ecarx.xui.adaptapi.diminteraction.DimInteraction";
     static final String CLS_NAVI = "com.ecarx.xui.adaptapi.diminteraction.INaviInteraction";
+    static final String CLS_INFO = "com.ecarx.xui.adaptapi.diminteraction.INaviInteraction$INavigationInfo";
 
     static final String SUPPORTED_DEVICE = "msmnile_gvmq";
 
@@ -90,13 +91,137 @@ final class DimApi {
             if (method.getDeclaringClass() == Object.class || method.isSynthetic()) {
                 continue;
             }
-            if (shown++ >= 40) {
+            if (shown++ >= 200) {
                 ProbeLog.i("   " + prefix + ": (more methods omitted)");
                 break;
             }
             ProbeLog.i("   " + prefix + ": " + method.getReturnType().getSimpleName() + " "
                     + method.getName()
                     + java.util.Arrays.toString(method.getParameterTypes()));
+        }
+    }
+
+    /**
+     * Pushes one fake turn-by-turn navigation for a few seconds, the way jiopia's ECARX port does:
+     * a {@link java.lang.reflect.Proxy} stands in for {@code INavigationInfo}, then the getters are
+     * refreshed once a second. Ends with {@code notifyTurnByTurnStopped} so the cluster is left as
+     * it was found. Runs on a worker thread; the command channel must stay responsive.
+     */
+    static void pushTest(Context context) {
+        if (!SUPPORTED_DEVICE.equals(android.os.Build.DEVICE)) {
+            ProbeLog.i("gated: Build.DEVICE=" + android.os.Build.DEVICE + " != " + SUPPORTED_DEVICE);
+            return;
+        }
+        new Thread(() -> {
+            try {
+                pushTestBlocking(context);
+            } catch (Throwable error) {
+                ProbeLog.e("dimnav failed", error);
+            }
+        }, "carprobe-dimnav").start();
+    }
+
+    private static void pushTestBlocking(Context context) throws Exception {
+        ProbeLog.i("=== DIM navi push test (fake route, 10 s) ===");
+        Class<?> dimClass = WifiApi.load(CLS_DIM);
+        Class<?> infoClass = WifiApi.load(CLS_INFO);
+        if (dimClass == null || infoClass == null) {
+            ProbeLog.i("DimInteraction or INavigationInfo unreachable; push test skipped");
+            return;
+        }
+        Object dim = null;
+        for (Method method : dimClass.getMethods()) {
+            if (Modifier.isStatic(method.getModifiers()) && method.getName().equals("create")) {
+                Object result = method.invoke(null, context);
+                if (result != null) {
+                    dim = result;
+                    break;
+                }
+            }
+        }
+        if (dim == null) {
+            ProbeLog.i("DimInteraction.create returned null; push test skipped");
+            return;
+        }
+        Object navi = invoke(dim, "getNaviInteraction");
+        if (navi == null) {
+            ProbeLog.i("getNaviInteraction() returned null; push test skipped");
+            return;
+        }
+        Object info = java.lang.reflect.Proxy.newProxyInstance(
+                infoClass.getClassLoader(), new Class<?>[]{infoClass}, new InfoHandler());
+        ProbeLog.i("fake INavigationInfo = " + info.getClass().getName());
+        ProbeLog.i("notifyNavigationStatus(2) -> " + call(navi, "notifyNavigationStatus", 2));
+        ProbeLog.i("notifyTurnByTurnStarted() -> " + call(navi, "notifyTurnByTurnStarted"));
+        for (int i = 0; i < 10; i++) {
+            ProbeLog.i("push " + i + ": updateNavigationInfo -> " + call(navi, "updateNavigationInfo", info));
+            call(navi, "updateDistanceToDestination", 450);
+            call(navi, "updateDistanceToNextGuidancePoint", 300);
+            call(navi, "updateETA", 670);
+            call(navi, "updateNextGuidancePointName", "PROBE");
+            call(navi, "updateTurnByTurnArrow", 9999);
+            Thread.sleep(1000);
+        }
+        ProbeLog.i("notifyTurnByTurnStopped() -> " + call(navi, "notifyTurnByTurnStopped"));
+        ProbeLog.i("notifyNavigationStatus(3) -> " + call(navi, "notifyNavigationStatus", 3));
+        ProbeLog.i("=== DIM navi push test done (clusters restored to stopped) ===");
+    }
+
+    private static Object call(Object target, String name, Object... arguments) {
+        for (Method method : target.getClass().getMethods()) {
+            if (!method.getName().equals(name) || method.getParameterCount() != arguments.length) {
+                continue;
+            }
+            try {
+                Class<?>[] types = method.getParameterTypes();
+                Object[] coerced = new Object[arguments.length];
+                for (int i = 0; i < arguments.length; i++) {
+                    Object value = arguments[i];
+                    if (types[i] == int.class && value instanceof Integer) {
+                        coerced[i] = value;
+                    } else {
+                        coerced[i] = value;
+                    }
+                }
+                return method.invoke(target, coerced);
+            } catch (Throwable error) {
+                return ProbeLog.describe(HudApi.unwrap(error));
+            }
+        }
+        return "no such method";
+    }
+
+    /** The 13 getters of INavigationInfo, answered with one fake route. */
+    private static final class InfoHandler implements java.lang.reflect.InvocationHandler {
+        @Override
+        public Object invoke(Object proxy, Method method, Object[] args) {
+            switch (method.getName()) {
+                case "getNavigationTurnId": return 9999;
+                case "getDistanceToDestination": return 450;
+                case "getDistanceToNextGuidancePoint": return 300;
+                case "getETA": return 670;
+                case "getNextGuidancePointName": return "PROBE";
+                case "getNavigationStatus": return 2;
+                case "getDayNightMode": return 0;
+                case "getExtensionInfo": return new android.os.Bundle();
+                case "toString": return "InfoHandler(PROBE)";
+                case "hashCode": return 9999;
+                case "equals": return proxy == (args == null || args.length == 0 ? null : args[0]);
+                default:
+                    return defaultValue(method.getReturnType());
+            }
+        }
+
+        private static Object defaultValue(Class<?> type) {
+            if (type == boolean.class) return false;
+            if (type == int.class) return 0;
+            if (type == long.class) return 0L;
+            if (type == float.class) return 0f;
+            if (type == double.class) return 0d;
+            if (type == short.class) return (short) 0;
+            if (type == byte.class) return (byte) 0;
+            if (type == char.class) return (char) 0;
+            return null;
         }
     }
 }

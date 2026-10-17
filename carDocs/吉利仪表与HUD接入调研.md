@@ -34,7 +34,7 @@ binder 名与接口（`android.os.ServiceManager.getService(...)` 直连，无�
 | 3 | `updateDistanceToDestination` | int（米） |
 | 4 | `updateDistanceToNextGuidancePoint` | int（米） |
 | 5 | `updateNextGuidancePointName` | String |
-| 6 | `updateNavigationTurnId` | int（转向图标 id） |
+| 6 | `updateNavigationTurnId` | int（转向图标 id，原厂值为 **100~148**，全表见 [`吉利导航转向ID-turnId表.md`](吉利导航转向ID-turnId表.md)） |
 | 7 | `updateLaneInfo` | `List<AdaptLaneInfo>`：`{int laneNumber, int laneBackIconId, Parcelable laneBackIcon}` |
 | 8 | `updateExtensionInfo` | `Bundle` |
 | 9 | `notifyDimProjectScreenSwitch` | boolean |

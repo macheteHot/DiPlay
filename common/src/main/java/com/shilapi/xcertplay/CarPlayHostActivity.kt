@@ -1178,7 +1178,16 @@ class CarPlayHostActivity : ComponentActivity() {
         if (!menuOpen) temporarySystemBarsEnabled = AirPlayPersistence.loadTemporarySystemBars(this)
         settingsGestureHint?.text = settingsGestureHintText()
         ensureClusterPresentation()
-        AirPlayPersistence.overlaySettingsListener = { runOnUiThread { applyClusterTurnOverlay() } }
+        AirPlayPersistence.overlaySettingsListener = { runOnUiThread {
+            applyClusterTurnOverlay()
+            // The dashboard map switch belongs to the running session: turning it off stops the
+            // projection now instead of at the next connection, and turning it on shows it.
+            if (AirPlayPersistence.loadClusterMapEnabled(this@CarPlayHostActivity)) {
+                // Only build the presentation while this screen is up; a stopped screen creates
+                // it again on its own start.
+                if (isActivityStarted || clusterPresentation != null) ensureClusterPresentation()
+            } else dismissClusterPresentation()
+        } }
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setTurnOverlayListener(clusterTurnOverlayListener)
         mainHandler.removeCallbacks(refreshTurnOverlay)
         mainHandler.post(refreshTurnOverlay)

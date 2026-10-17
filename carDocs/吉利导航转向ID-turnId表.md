@@ -1,6 +1,7 @@
 # 吉利原厂导航转向 ID（turnId）全表
 
 本文是从车机原厂包里**静态还原**出来的转向图标识号表，供 CarPlay 导航信息写入**仪表盘 / HUD** 时使用。
+车道区的 `laneIconId` 是另一套编号，见 [`吉利导航车道图标ID-laneIconId表.md`](吉利导航车道图标ID-laneIconId表.md)。
 
 分析对象（均为本机 `/system`、`/vendor` 下的出货产物）：
 

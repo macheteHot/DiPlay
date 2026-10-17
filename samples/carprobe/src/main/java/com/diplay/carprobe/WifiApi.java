@@ -223,11 +223,22 @@ final class WifiApi {
 
     private static void readExternalWifi(Context context) {
         ProbeLog.i("-- " + CLS_EXTERNAL_WIFI + " --");
-        Class<?> cls = load(CLS_EXTERNAL_WIFI);
-        if (cls == null) {
+        Object manager = externalWifi(context);
+        if (manager == null) {
+            ProbeLog.i("ExternalWifiManager.create returned null (stub or unsupported)");
             return;
         }
-        Object manager = null;
+        for (String name : new String[]{"isSupported", "isWifiEnabled", "getWifiState"}) {
+            invokeNoArg(manager, name);
+        }
+    }
+
+    /** The adaptapi Wi-Fi wrapper, or null when its class or {@code create()} does not work here. */
+    private static Object externalWifi(Context context) {
+        Class<?> cls = load(CLS_EXTERNAL_WIFI);
+        if (cls == null) {
+            return null;
+        }
         for (Method method : cls.getMethods()) {
             if (!Modifier.isStatic(method.getModifiers()) || !method.getName().equals("create")) {
                 continue;
@@ -237,19 +248,50 @@ final class WifiApi {
                         ? method.invoke(null, context) : method.invoke(null, context, 0);
                 ProbeLog.i("ExternalWifiManager.create(" + method.getParameterCount() + " args) -> " + result);
                 if (result != null) {
-                    manager = result;
-                    break;
+                    return result;
                 }
             } catch (Throwable error) {
                 ProbeLog.i("ExternalWifiManager.create failed -> " + ProbeLog.describe(HudApi.unwrap(error)));
             }
         }
-        if (manager == null) {
-            ProbeLog.i("ExternalWifiManager.create returned null (stub or unsupported)");
+        return null;
+    }
+
+    /**
+     * #2: can a normal app turn the Wi-Fi client on through the ECARX wrapper, without the driver
+     * opening Settings and without ADB? Both the wrapper's own answer and Settings.Global are
+     * reported before and after a wait, so a SecurityException, a silent no-op and a real change
+     * are told apart. Nothing else is touched, and the caller can switch it back the same way.
+     */
+    static void setClientWifi(Context context, boolean on) {
+        if (!SUPPORTED_DEVICE.equals(android.os.Build.DEVICE)) {
+            ProbeLog.i("gated: Build.DEVICE=" + android.os.Build.DEVICE + " != " + SUPPORTED_DEVICE
+                    + "; skipping Wi-Fi client write");
             return;
         }
-        for (String name : new String[]{"isSupported", "isWifiEnabled", "getWifiState"}) {
-            invokeNoArg(manager, name);
+        ProbeLog.i("=== Wi-Fi client " + (on ? "on" : "off") + " (gated to " + SUPPORTED_DEVICE + ") ===");
+        ProbeLog.i("Settings.Global wifi_on before = " + globalWifiOn(context));
+        Object manager = externalWifi(context);
+        if (manager == null) {
+            ProbeLog.i("ExternalWifiManager unavailable; nothing tried");
+            return;
+        }
+        ProbeLog.i("isSupported -> " + invokeNoArg(manager, "isSupported"));
+        ProbeLog.i("isWifiEnabled before -> " + invokeNoArg(manager, "isWifiEnabled"));
+        ProbeLog.i("setWifiEnabled(" + on + ") -> " + invoke(manager, "setWifiEnabled", on));
+        sleep(4000);
+        ProbeLog.i("isWifiEnabled after -> " + invokeNoArg(manager, "isWifiEnabled"));
+        ProbeLog.i("Settings.Global wifi_on after = " + globalWifiOn(context));
+        interfaces();
+        ProbeLog.i("=== Wi-Fi client " + (on ? "on" : "off") + " done ===");
+    }
+
+    private static int globalWifiOn(Context context) {
+        try {
+            return android.provider.Settings.Global.getInt(
+                    context.getContentResolver(), "wifi_on", -1);
+        } catch (Throwable error) {
+            return -1;
         }
     }
 

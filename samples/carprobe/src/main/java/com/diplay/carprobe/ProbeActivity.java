@@ -725,7 +725,7 @@ public final class ProbeActivity extends Activity {
             switch (p[0]) {
                 case "help":
                     ProbeLog.i("commands: dim <0-3> | ar <0|1> | switchar <0|1> | guide | subscribe <0|1> "
-                            + "| inspect | cycle | hudapi | hudimpl | ambli | ambmusic | ambrestore | ambprobe | ambmarquee | ambsteady | ambwheel | ambspectrum | ambvisualizer | ambforcemusic | wifi | wifibringup | naviserv [1] | service <type> | permservice <type> "
+                            + "| inspect | cycle | hudapi | hudimpl | ambli | ambmusic | ambrestore | ambprobe | ambmarquee | ambsteady | ambwheel | ambspectrum | ambvisualizer | ambforcemusic | wifi | wifibringup | wifiset [on|off] | naviserv [1] | service <type> | permservice <type> "
                             + "| simnavi | stopnavi | dimnavi <start|tick|stop> | dimproj <0|1> "
                             + "| navistart [naviType] | route [action] [lat] [lng] [name] "
                             + "| hold <turn> <dist> | unhold | binddim "
@@ -865,6 +865,10 @@ public final class ProbeActivity extends Activity {
                     break;
                 case "wifibringup":
                     WifiApi.bringUp(this);
+                    break;
+                case "wifiset":
+                    // #2: ExternalWifiManager.setWifiEnabled on|off (off when the argument is missing)
+                    WifiApi.setClientWifi(this, p.length > 1 && !"off".equals(p[1]));
                     break;
                 case "cycle":
                     hudCycleSequence();

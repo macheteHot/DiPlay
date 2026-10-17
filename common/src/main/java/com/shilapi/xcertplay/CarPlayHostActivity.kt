@@ -458,10 +458,7 @@ class CarPlayHostActivity : ComponentActivity() {
             clusterTurnGuidance = guidance
             // The cluster's own navigation area reads the same guidance the turn card draws.
             if (AirPlayPersistence.loadGeelyDimNavi(this)) {
-                val arrow = guidance?.let {
-                    ClusterTurnCardView.arrowBitmap(this, it.icon, dp(48))
-                }
-                com.shilapi.xcertplay.hud.GeelyDimNavi.update(guidance, arrow)
+                com.shilapi.xcertplay.hud.GeelyDimNavi.update(guidance)
             }
             applyClusterTurnOverlay()
         }

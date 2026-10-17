@@ -1,7 +1,6 @@
 package com.shilapi.xcertplay.hud
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
 import com.shilapi.xcertplay.network.GeelyHeadUnit
@@ -17,15 +16,17 @@ import java.util.concurrent.TimeUnit
  * interaction API, so the instrument panel keeps its factory layout instead of showing DiPlay's
  * mirrored map.
  *
- * <p>Measured on the car (issue #3, question C): `DimInteraction.create(Context)` returns an
- * instance, `getNaviInteraction()` exposes the update surface, and a `Proxy` for
- * `INaviInteraction$INavigationInfo` carrying `PROBE / 450 m / 9999` was rendered by the cluster.
+ * <p>Measured on the car (issue #3): `DimInteraction.create(Context)` returns an instance,
+ * `getNaviInteraction()` exposes the update surface, and a `Proxy` for
+ * `INaviInteraction$INavigationInfo` carrying `PROBE / 450 m / turn id` was rendered by the cluster.
  * Unlike the `DimNaviService` binder, which accepts the same values and renders nothing, this path
- * works.
+ * works. The turn ids are the car's own 100..148 vocabulary ([GeelyTurnId]); the probe's 1..8 are
+ * not drawn.
  *
- * <p>The data comes from [ClusterTurnGuidance], which is fed by iAP2 route guidance
- * (0x5201/0x5202). Pushes repeat once a second because the cluster clears a stale navigation; a
- * stopped route sends `notifyTurnByTurnStopped` so the panel goes back to its own state.
+ * <p>Which calls the cluster needs: `notifyNavigationStatus(2)` and `notifyTurnByTurnStarted` once
+ * per route, then `updateNavigationInfo` plus the individual fields about once a second. Ending the
+ * route sends `notifyTurnByTurnStopped` and `notifyNavigationStatus(3)` once and stops the tick, so
+ * the panel does not keep the last guidance (issue #5).
  *
  * <p>Every entry point is gated by [supported], and a JVM unit test never takes this path: the
  * classes are absent there, so [start] returns false.
@@ -37,27 +38,21 @@ object GeelyDimNavi {
     private const val CLS_INFO = "com.ecarx.xui.adaptapi.diminteraction.INaviInteraction\$INavigationInfo"
     private const val PERIOD_MILLIS = 1_000L
 
-    /**
-     * Turn id the cluster rendered in the probe. The car's own ids are not mapped yet; this one is
-     * known to draw, and the distance/road/ETA carry the actual guidance meanwhile.
-     */
-    const val TURN_ID = 9999
-
     private val executor = Executors.newSingleThreadScheduledExecutor { task ->
         Thread(task, "geely-dim-navi").apply { isDaemon = true }
     }
+    private val lock = Any()
     private var navi: Any? = null
     private var info: Any? = null
     private var tick: ScheduledFuture<*>? = null
 
     @Volatile private var latest: ClusterTurnGuidance? = null
-    @Volatile private var arrow: Bitmap? = null
     @Volatile private var started = false
 
     /** True on the one head unit whose DIM interaction API was measured (issue #3). */
     fun supported(): Boolean = GeelyHeadUnit.detected
 
-    /** Starts the one-second push; false when the API is unavailable or the car is not this one. */
+    /** Starts the DIM session; false when the API is unavailable or the car is not this one. */
     @Synchronized
     fun start(context: Context): Boolean {
         if (started) return true
@@ -68,40 +63,63 @@ object GeelyDimNavi {
             ?: return false
         navi = created
         started = true
-        tick = executor.scheduleWithFixedDelay(
-            { runCatching { push() }.onFailure { Log.w(TAG, "cluster navigation push failed", it) } },
-            0,
-            PERIOD_MILLIS,
-            TimeUnit.MILLISECONDS,
-        )
+        if (latest != null) beginRoute()
         Log.i(TAG, "cluster navigation area in use")
         return true
     }
 
     /**
-     * The guidance to show, or null when there is no route: the next push clears the area.
-     * [arrow] is the turn glyph as a bitmap; without one the cluster's own id is sent.
+     * The guidance to show. A null guidance ends the route: the cluster is told to stop and the
+     * one-second push stops with it, so nothing is left on the panel. A new guidance starts it
+     * again on the same DIM session.
      */
-    fun update(guidance: ClusterTurnGuidance?, arrow: Bitmap? = null) {
+    fun update(guidance: ClusterTurnGuidance?) {
         latest = guidance
-        this.arrow = arrow
+        if (!started) return
+        if (guidance == null) endRoute() else beginRoute()
     }
 
-    /** Stops the push and tells the cluster the route ended. Safe to call repeatedly. */
+    /** Ends the route and releases the DIM session. Safe to call repeatedly. */
     @Synchronized
     fun stop() {
         if (!started) return
         started = false
-        tick?.cancel(false)
-        tick = null
-        latest = null
-        val ended = navi
+        endRoute()
         navi = null
         info = null
+        Log.i(TAG, "cluster navigation area released")
+    }
+
+    private fun beginRoute() {
+        synchronized(lock) {
+            if (tick != null) return
+            val navi = navi ?: return
+            // Once per route: the cluster treats a turn-by-turn session as started here.
+            executor.execute {
+                runCatching { call(navi, "notifyNavigationStatus", 2) }
+                runCatching { call(navi, "notifyTurnByTurnStarted") }
+            }
+            tick = executor.scheduleWithFixedDelay(
+                { runCatching { push() }.onFailure { Log.w(TAG, "cluster navigation push failed", it) } },
+                0,
+                PERIOD_MILLIS,
+                TimeUnit.MILLISECONDS,
+            )
+        }
+    }
+
+    private fun endRoute() {
+        val ended: Any?
+        synchronized(lock) {
+            tick?.cancel(false)
+            tick = null
+            ended = navi
+        }
+        if (ended == null) return
         executor.execute {
             runCatching { call(ended, "notifyTurnByTurnStopped") }
             runCatching { call(ended, "notifyNavigationStatus", 3) }
-            Log.i(TAG, "cluster navigation area released")
+            Log.i(TAG, "cluster navigation area stopped")
         }
     }
 
@@ -118,17 +136,13 @@ object GeelyDimNavi {
         if (!started) return
         val navi = navi ?: return
         val guidance = latest ?: return
-        // The route is live as far as the cluster is concerned once a turn is pushed.
-        call(navi, "notifyNavigationStatus", 2)
         call(navi, "updateNavigationInfo", info)
         call(navi, "updateDistanceToNextGuidancePoint", guidance.distanceMeters)
         // The cluster's own getters are ints; the route state keeps these as Long.
         guidance.remainingMeters?.let { call(navi, "updateDistanceToDestination", it.toInt()) }
         guidance.remainingSeconds?.let { call(navi, "updateETA", it.toInt()) }
         if (guidance.road.isNotEmpty()) call(navi, "updateNextGuidancePointName", guidance.road)
-        val picture = arrow
-        if (picture != null) call(navi, "updateTurnByTurnArrow", picture)
-        else call(navi, "updateTurnByTurnArrow", TURN_ID)
+        call(navi, "updateTurnByTurnArrow", GeelyTurnId.forManeuver(guidance.icon, guidance.roundaboutExit))
     }
 
     private fun call(target: Any?, name: String, vararg arguments: Any?): Any? {
@@ -163,16 +177,18 @@ object GeelyDimNavi {
         override fun invoke(proxy: Any, method: Method, args: Array<out Any?>?): Any? {
             val guidance = latest
             return when (method.name) {
-                "getNavigationTurnId" -> TURN_ID
+                "getNavigationTurnId" -> guidance?.let {
+                    GeelyTurnId.forManeuver(it.icon, it.roundaboutExit)
+                } ?: GeelyTurnId.UNKNOWN
                 "getDistanceToNextGuidancePoint" -> guidance?.distanceMeters ?: 0
-                "getDistanceToDestination" -> guidance?.remainingMeters ?: 0
-                "getETA" -> guidance?.remainingSeconds ?: 0
+                "getDistanceToDestination" -> guidance?.remainingMeters?.toInt() ?: 0
+                "getETA" -> guidance?.remainingSeconds?.toInt() ?: 0
                 "getNextGuidancePointName" -> guidance?.road.orEmpty()
                 "getNavigationStatus" -> if (guidance == null) 3 else 2
                 "getDayNightMode" -> 0
                 "getExtensionInfo" -> Bundle()
                 "toString" -> "GeelyDimNavi"
-                "hashCode" -> TURN_ID
+                "hashCode" -> GeelyTurnId.UNKNOWN
                 "equals" -> proxy === args?.firstOrNull()
                 else -> defaultValue(method.returnType)
             }

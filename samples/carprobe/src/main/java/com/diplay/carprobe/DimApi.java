@@ -149,7 +149,7 @@ final class DimApi {
             return;
         }
         Object info = java.lang.reflect.Proxy.newProxyInstance(
-                infoClass.getClassLoader(), new Class<?>[]{infoClass}, new InfoHandler());
+                infoClass.getClassLoader(), new Class<?>[]{infoClass}, new InfoHandler(9999, "PROBE"));
         ProbeLog.i("fake INavigationInfo = " + info.getClass().getName());
         ProbeLog.i("notifyNavigationStatus(2) -> " + call(navi, "notifyNavigationStatus", 2));
         ProbeLog.i("notifyTurnByTurnStarted() -> " + call(navi, "notifyTurnByTurnStarted"));
@@ -193,14 +193,22 @@ final class DimApi {
 
     /** The 13 getters of INavigationInfo, answered with one fake route. */
     private static final class InfoHandler implements java.lang.reflect.InvocationHandler {
+        private final int turnId;
+        private final String name;
+
+        InfoHandler(int turnId, String name) {
+            this.turnId = turnId;
+            this.name = name;
+        }
+
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) {
             switch (method.getName()) {
-                case "getNavigationTurnId": return 9999;
+                case "getNavigationTurnId": return turnId;
                 case "getDistanceToDestination": return 450;
                 case "getDistanceToNextGuidancePoint": return 300;
                 case "getETA": return 670;
-                case "getNextGuidancePointName": return "PROBE";
+                case "getNextGuidancePointName": return name;
                 case "getNavigationStatus": return 2;
                 case "getDayNightMode": return 0;
                 case "getExtensionInfo": return new android.os.Bundle();
@@ -223,5 +231,69 @@ final class DimApi {
             if (type == char.class) return (char) 0;
             return null;
         }
+    }
+
+    /**
+     * Pushes one cluster turn id for a few seconds, so the car's own id vocabulary can be read off
+     * the cluster: run `dimturn 2`, `dimturn 3`, ... and note which arrow appears.
+     */
+    static void pushTurn(Context context, int turnId) {
+        if (!SUPPORTED_DEVICE.equals(android.os.Build.DEVICE)) {
+            ProbeLog.i("gated: Build.DEVICE=" + android.os.Build.DEVICE + " != " + SUPPORTED_DEVICE);
+            return;
+        }
+        new Thread(() -> {
+            try {
+                ProbeLog.i("=== dimturn " + turnId + " (5 s) ===");
+                Object dim = null;
+                Class<?> dimClass = WifiApi.load(CLS_DIM);
+                if (dimClass == null) {
+                    ProbeLog.i("DimInteraction unreachable");
+                    return;
+                }
+                for (Method method : dimClass.getMethods()) {
+                    if (Modifier.isStatic(method.getModifiers()) && method.getName().equals("create")) {
+                        Object result = method.invoke(null, context);
+                        if (result != null) {
+                            dim = result;
+                            break;
+                        }
+                    }
+                }
+                if (dim == null) {
+                    ProbeLog.i("DimInteraction.create returned null");
+                    return;
+                }
+                Object navi = invoke(dim, "getNaviInteraction");
+                if (navi == null) {
+                    ProbeLog.i("getNaviInteraction() returned null");
+                    return;
+                }
+                Class<?> infoClass = WifiApi.load(CLS_INFO);
+                if (infoClass == null) {
+                    ProbeLog.i("INavigationInfo unreachable");
+                    return;
+                }
+                Object info = java.lang.reflect.Proxy.newProxyInstance(
+                        infoClass.getClassLoader(), new Class<?>[]{infoClass},
+                        new InfoHandler(turnId, "TURN " + turnId));
+                call(navi, "notifyNavigationStatus", 2);
+                call(navi, "notifyTurnByTurnStarted");
+                for (int i = 0; i < 5; i++) {
+                    ProbeLog.i("dimturn " + turnId + " push " + i
+                            + " navInfo -> " + call(navi, "updateNavigationInfo", info)
+                            + " turn -> " + call(navi, "updateTurnByTurnArrow", turnId));
+                    call(navi, "updateDistanceToNextGuidancePoint", 450);
+                    call(navi, "updateDistanceToDestination", 2000);
+                    call(navi, "updateETA", 670);
+                    call(navi, "updateNextGuidancePointName", "TURN " + turnId);
+                    Thread.sleep(1000);
+                }
+                call(navi, "notifyTurnByTurnStopped");
+                ProbeLog.i("=== dimturn " + turnId + " done ===");
+            } catch (Throwable error) {
+                ProbeLog.e("dimturn failed", error);
+            }
+        }, "carprobe-dimturn").start();
     }
 }

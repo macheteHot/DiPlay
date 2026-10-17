@@ -18,6 +18,7 @@ final class DimApi {
     static final String CLS_DIM = "com.ecarx.xui.adaptapi.diminteraction.DimInteraction";
     static final String CLS_NAVI = "com.ecarx.xui.adaptapi.diminteraction.INaviInteraction";
     static final String CLS_INFO = "com.ecarx.xui.adaptapi.diminteraction.INaviInteraction$INavigationInfo";
+    static final String CLS_LANE = "com.ecarx.xui.adaptapi.diminteraction.INaviInteraction$ILaneInfo";
 
     static final String SUPPORTED_DEVICE = "msmnile_gvmq";
 
@@ -67,6 +68,18 @@ final class DimApi {
             }
         }
         ProbeLog.i("=== DIM interaction dump done ===");
+    }
+
+    private static Object defaultValue(Class<?> type) {
+        if (type == boolean.class) return false;
+        if (type == int.class) return 0;
+        if (type == long.class) return 0L;
+        if (type == float.class) return 0f;
+        if (type == double.class) return 0d;
+        if (type == short.class) return (short) 0;
+        if (type == byte.class) return (byte) 0;
+        if (type == char.class) return (char) 0;
+        return null;
     }
 
     private static Object invoke(Object target, String name) {
@@ -295,5 +308,83 @@ final class DimApi {
                 ProbeLog.e("dimturn failed", error);
             }
         }, "carprobe-dimturn").start();
+    }
+
+    /**
+     * Pushes one lane layout (count lanes, all with the same icon id) for a few seconds. The client
+     * side takes `INaviInteraction$ILaneInfo[]`, so the probe answers that interface with a Proxy
+     * and lets the car's own icon ids be read off the cluster.
+     */
+    static void pushLanes(Context context, int iconId, int count) {
+        if (!SUPPORTED_DEVICE.equals(android.os.Build.DEVICE)) {
+            ProbeLog.i("gated: Build.DEVICE=" + android.os.Build.DEVICE + " != " + SUPPORTED_DEVICE);
+            return;
+        }
+        new Thread(() -> {
+            try {
+                ProbeLog.i("=== dimlane icon=" + iconId + " count=" + count + " (5 s) ===");
+                Class<?> dimClass = WifiApi.load(CLS_DIM);
+                Class<?> laneClass = WifiApi.load(CLS_LANE);
+                Class<?> infoClass = WifiApi.load(CLS_INFO);
+                if (dimClass == null || laneClass == null || infoClass == null) {
+                    ProbeLog.i("DimInteraction / ILaneInfo / INavigationInfo unreachable");
+                    return;
+                }
+                Object dim = null;
+                for (Method method : dimClass.getMethods()) {
+                    if (Modifier.isStatic(method.getModifiers()) && method.getName().equals("create")) {
+                        Object result = method.invoke(null, context);
+                        if (result != null) {
+                            dim = result;
+                            break;
+                        }
+                    }
+                }
+                if (dim == null) {
+                    ProbeLog.i("DimInteraction.create returned null");
+                    return;
+                }
+                Object navi = invoke(dim, "getNaviInteraction");
+                if (navi == null) {
+                    ProbeLog.i("getNaviInteraction() returned null");
+                    return;
+                }
+                Object info = java.lang.reflect.Proxy.newProxyInstance(
+                        infoClass.getClassLoader(), new Class<?>[]{infoClass},
+                        new InfoHandler(102, "LANE " + iconId));
+                Object lanes = java.lang.reflect.Array.newInstance(laneClass, count);
+                for (int i = 0; i < count; i++) {
+                    final int laneNumber = i + 1;
+                    Object lane = java.lang.reflect.Proxy.newProxyInstance(
+                            laneClass.getClassLoader(), new Class<?>[]{laneClass},
+                            (proxy, method, args) -> {
+                                switch (method.getName()) {
+                                    case "getLaneNumber": return laneNumber;
+                                    case "getLaneBackIconId": return iconId;
+                                    case "toString": return "ILaneInfo(" + laneNumber + "," + iconId + ")";
+                                    case "hashCode": return laneNumber;
+                                    case "equals": return proxy == (args == null || args.length == 0 ? null : args[0]);
+                                    default: return defaultValue(method.getReturnType());
+                                }
+                            });
+                    java.lang.reflect.Array.set(lanes, i, lane);
+                }
+                call(navi, "notifyNavigationStatus", 2);
+                call(navi, "notifyTurnByTurnStarted");
+                for (int i = 0; i < 5; i++) {
+                    ProbeLog.i("dimlane push " + i + " navInfo -> "
+                            + call(navi, "updateNavigationInfo", info)
+                            + " lanes -> " + call(navi, "updateLaneInfo", lanes));
+                    call(navi, "updateTurnByTurnArrow", 102);
+                    call(navi, "updateDistanceToNextGuidancePoint", 450);
+                    call(navi, "updateNextGuidancePointName", "LANE " + iconId);
+                    Thread.sleep(1000);
+                }
+                call(navi, "notifyTurnByTurnStopped");
+                ProbeLog.i("=== dimlane done ===");
+            } catch (Throwable error) {
+                ProbeLog.e("dimlane failed", error);
+            }
+        }, "carprobe-dimlane").start();
     }
 }

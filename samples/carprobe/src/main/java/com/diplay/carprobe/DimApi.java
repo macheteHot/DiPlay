@@ -149,7 +149,7 @@ final class DimApi {
             return;
         }
         Object info = java.lang.reflect.Proxy.newProxyInstance(
-                infoClass.getClassLoader(), new Class<?>[]{infoClass}, new InfoHandler());
+                infoClass.getClassLoader(), new Class<?>[]{infoClass}, new InfoHandler(9999, "PROBE"));
         ProbeLog.i("fake INavigationInfo = " + info.getClass().getName());
         ProbeLog.i("notifyNavigationStatus(2) -> " + call(navi, "notifyNavigationStatus", 2));
         ProbeLog.i("notifyTurnByTurnStarted() -> " + call(navi, "notifyTurnByTurnStarted"));
@@ -193,14 +193,22 @@ final class DimApi {
 
     /** The 13 getters of INavigationInfo, answered with one fake route. */
     private static final class InfoHandler implements java.lang.reflect.InvocationHandler {
+        private final int turnId;
+        private final String name;
+
+        InfoHandler(int turnId, String name) {
+            this.turnId = turnId;
+            this.name = name;
+        }
+
         @Override
         public Object invoke(Object proxy, Method method, Object[] args) {
             switch (method.getName()) {
-                case "getNavigationTurnId": return 9999;
+                case "getNavigationTurnId": return turnId;
                 case "getDistanceToDestination": return 450;
                 case "getDistanceToNextGuidancePoint": return 300;
                 case "getETA": return 670;
-                case "getNextGuidancePointName": return "PROBE";
+                case "getNextGuidancePointName": return name;
                 case "getNavigationStatus": return 2;
                 case "getDayNightMode": return 0;
                 case "getExtensionInfo": return new android.os.Bundle();
@@ -261,11 +269,23 @@ final class DimApi {
                     ProbeLog.i("getNaviInteraction() returned null");
                     return;
                 }
+                Class<?> infoClass = WifiApi.load(CLS_INFO);
+                if (infoClass == null) {
+                    ProbeLog.i("INavigationInfo unreachable");
+                    return;
+                }
+                Object info = java.lang.reflect.Proxy.newProxyInstance(
+                        infoClass.getClassLoader(), new Class<?>[]{infoClass},
+                        new InfoHandler(turnId, "TURN " + turnId));
                 call(navi, "notifyNavigationStatus", 2);
+                call(navi, "notifyTurnByTurnStarted");
                 for (int i = 0; i < 5; i++) {
-                    ProbeLog.i("dimturn " + turnId + " push " + i + " -> "
-                            + call(navi, "updateTurnByTurnArrow", turnId));
+                    ProbeLog.i("dimturn " + turnId + " push " + i
+                            + " navInfo -> " + call(navi, "updateNavigationInfo", info)
+                            + " turn -> " + call(navi, "updateTurnByTurnArrow", turnId));
                     call(navi, "updateDistanceToNextGuidancePoint", 450);
+                    call(navi, "updateDistanceToDestination", 2000);
+                    call(navi, "updateETA", 670);
                     call(navi, "updateNextGuidancePointName", "TURN " + turnId);
                     Thread.sleep(1000);
                 }

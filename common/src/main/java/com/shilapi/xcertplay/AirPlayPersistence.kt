@@ -99,6 +99,7 @@ object AirPlayPersistence {
     private const val KEY_LAUNCHER_BUBBLE = "launcher_bubble"
     private const val KEY_LAUNCHER_BUBBLE_SIZE = "launcher_bubble_size"
     private const val KEY_CLUSTER_MAP_SCALE = "cluster_map_scale_percent"
+    private const val KEY_GEELY_DIM_NAVI = "geely_dim_navi"
     private const val KEY_CLUSTER_CONTENT = "cluster_content"
     private const val KEY_CLUSTER_MARKER_X = "cluster_marker_horizontal_step"
     private const val KEY_CLUSTER_MARKER_Y = "cluster_marker_vertical_step"
@@ -882,6 +883,14 @@ object AirPlayPersistence {
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_CLUSTER_MAP, enabled).apply()
         // A running session applies the switch at once, without waiting for the next connection.
         overlaySettingsListener?.invoke()
+    }
+
+    /** CarPlay's turns in the cluster's own navigation area (DIM interaction), not the mirrored map. */
+    fun loadGeelyDimNavi(context: Context): Boolean =
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).getBoolean(KEY_GEELY_DIM_NAVI, false)
+
+    fun saveGeelyDimNavi(context: Context, enabled: Boolean) {
+        context.getSharedPreferences(PREFS, Context.MODE_PRIVATE).edit().putBoolean(KEY_GEELY_DIM_NAVI, enabled).apply()
     }
 
     fun loadClusterProjectionHeld(context: Context): Boolean =

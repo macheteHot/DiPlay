@@ -1015,4 +1015,6 @@
     <string name="black_corner_overlay_off">Off</string>
     <string name="black_corner_overlay_value">%1$d dp</string>
     <string name="iphone_corner_mask_mode">iPhone mask (experimental)</string>
+    <string name="settings_geely_dim_navi">Cluster navigation area (experimental)</string>
+    <string name="settings_geely_dim_navi_description">Shows CarPlay\'s next turn, distance and road in the cluster\'s own navigation area instead of mirroring the map there. Uses the car\'s DIM interaction service; other head units are unchanged.</string>
 </resources>

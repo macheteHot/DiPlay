@@ -456,6 +456,13 @@ class CarPlayHostActivity : ComponentActivity() {
     private val clusterTurnOverlayListener: (com.shilapi.xcertplay.hud.ClusterTurnGuidance?) -> Unit = { guidance ->
         runOnUiThread {
             clusterTurnGuidance = guidance
+            // The cluster's own navigation area reads the same guidance the turn card draws.
+            if (AirPlayPersistence.loadGeelyDimNavi(this)) {
+                val arrow = guidance?.let {
+                    ClusterTurnCardView.arrowBitmap(this, it.icon, dp(48))
+                }
+                com.shilapi.xcertplay.hud.GeelyDimNavi.update(guidance, arrow)
+            }
             applyClusterTurnOverlay()
         }
     }
@@ -1097,6 +1104,9 @@ class CarPlayHostActivity : ComponentActivity() {
     override fun onStart() {
         super.onStart()
         isActivityStarted = true
+        if (AirPlayPersistence.loadGeelyDimNavi(this)) {
+            com.shilapi.xcertplay.hud.GeelyDimNavi.start(applicationContext)
+        }
         logThemeState(ThemeModeDiagnostics.Source.START, resources.configuration)
         mainHandler.removeCallbacks(pollConfiguration)
         mainHandler.post(pollConfiguration)
@@ -1883,6 +1893,7 @@ class CarPlayHostActivity : ComponentActivity() {
         delayedDoubleSiri = null
         AirPlayPersistence.overlaySettingsListener = null
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setTurnOverlayListener(null)
+        com.shilapi.xcertplay.hud.GeelyDimNavi.stop()
         com.shilapi.xcertplay.hud.BydNavigationOutputs.setClusterNaviModeListener(null)
         clusterMonitor?.stop()
         getSystemService(android.hardware.display.DisplayManager::class.java)

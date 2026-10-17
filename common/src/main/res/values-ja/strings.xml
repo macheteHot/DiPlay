@@ -1014,4 +1014,6 @@
     <string name="black_corner_overlay_off">オフ</string>
     <string name="black_corner_overlay_value">%1$d dp</string>
     <string name="iphone_corner_mask_mode">iPhoneのマスク（実験的機能）</string>
+    <string name="settings_geely_dim_navi">クラスタのナビ表示（実験的機能）</string>
+    <string name="settings_geely_dim_navi_description">地図をミラーせず、CarPlay の次の曲がり角・距離・道路をクラスタ本来のナビ表示に出します。車両の DIM 連携サービスを使用します。他のヘッドユニットは変わりません。</string>
 </resources>

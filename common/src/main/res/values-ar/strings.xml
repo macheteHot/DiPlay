@@ -961,4 +961,6 @@
     <string name="black_corner_overlay_off">إيقاف</string>
     <string name="black_corner_overlay_value">%1$d dp</string>
     <string name="iphone_corner_mask_mode">قناع iPhone (تجريبي)</string>
+    <string name="settings_geely_dim_navi">منطقة التنقل في لوحة العدادات (تجريبي)</string>
+    <string name="settings_geely_dim_navi_description">يعرض المنعطف التالي والمسافة والطريق من CarPlay في منطقة التنقل الخاصة بلوحة العدادات بدلًا من عكس الخريطة. يستخدم خدمة تفاعل DIM في السيارة؛ لا تتغير أجهزة الرأس الأخرى.</string>
 </resources>

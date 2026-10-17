@@ -2198,6 +2198,18 @@ class DiPlayActivity : ComponentActivity(), AppAppearanceOwner {
                 AirPlayPersistence.saveClusterMapEnabled(this, it)
                 render()
             }
+            // The cluster's own navigation area instead of the mirrored map: the same guidance the
+            // turn card draws, pushed through the car's DIM interaction API (measured, issue #3).
+            if (com.shilapi.xcertplay.hud.GeelyDimNavi.supported()) {
+                toggle(card, getString(R.string.settings_geely_dim_navi),
+                    getString(R.string.settings_geely_dim_navi_description),
+                    AirPlayPersistence.loadGeelyDimNavi(this)) { enabled ->
+                    AirPlayPersistence.saveGeelyDimNavi(this, enabled)
+                    if (enabled) com.shilapi.xcertplay.hud.GeelyDimNavi.start(applicationContext)
+                    else com.shilapi.xcertplay.hud.GeelyDimNavi.stop()
+                    render()
+                }
+            }
             if (clusterMapEnabled) {
                 clusterSpeedometerControls(card)
                 clusterMusicControls(card)

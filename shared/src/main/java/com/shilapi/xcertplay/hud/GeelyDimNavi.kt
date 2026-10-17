@@ -1,7 +1,6 @@
 package com.shilapi.xcertplay.hud
 
 import android.content.Context
-import android.graphics.Bitmap
 import android.os.Bundle
 import android.util.Log
 import com.shilapi.xcertplay.network.GeelyHeadUnit
@@ -41,8 +40,6 @@ object GeelyDimNavi {
      * Turn id the cluster rendered in the probe. The car's own ids are not mapped yet; this one is
      * known to draw, and the distance/road/ETA carry the actual guidance meanwhile.
      */
-    const val TURN_ID = 9999
-
     private val executor = Executors.newSingleThreadScheduledExecutor { task ->
         Thread(task, "geely-dim-navi").apply { isDaemon = true }
     }
@@ -51,7 +48,6 @@ object GeelyDimNavi {
     private var tick: ScheduledFuture<*>? = null
 
     @Volatile private var latest: ClusterTurnGuidance? = null
-    @Volatile private var arrow: Bitmap? = null
     @Volatile private var started = false
 
     /** True on the one head unit whose DIM interaction API was measured (issue #3). */
@@ -78,13 +74,9 @@ object GeelyDimNavi {
         return true
     }
 
-    /**
-     * The guidance to show, or null when there is no route: the next push clears the area.
-     * [arrow] is the turn glyph as a bitmap; without one the cluster's own id is sent.
-     */
-    fun update(guidance: ClusterTurnGuidance?, arrow: Bitmap? = null) {
+    /** The guidance to show, or null when there is no route: the next push clears the area. */
+    fun update(guidance: ClusterTurnGuidance?) {
         latest = guidance
-        this.arrow = arrow
     }
 
     /** Stops the push and tells the cluster the route ended. Safe to call repeatedly. */
@@ -126,9 +118,7 @@ object GeelyDimNavi {
         guidance.remainingMeters?.let { call(navi, "updateDistanceToDestination", it.toInt()) }
         guidance.remainingSeconds?.let { call(navi, "updateETA", it.toInt()) }
         if (guidance.road.isNotEmpty()) call(navi, "updateNextGuidancePointName", guidance.road)
-        val picture = arrow
-        if (picture != null) call(navi, "updateTurnByTurnArrow", picture)
-        else call(navi, "updateTurnByTurnArrow", TURN_ID)
+        call(navi, "updateTurnByTurnArrow", GeelyTurnId.forManeuver(guidance.icon, guidance.roundaboutExit))
     }
 
     private fun call(target: Any?, name: String, vararg arguments: Any?): Any? {
@@ -163,7 +153,7 @@ object GeelyDimNavi {
         override fun invoke(proxy: Any, method: Method, args: Array<out Any?>?): Any? {
             val guidance = latest
             return when (method.name) {
-                "getNavigationTurnId" -> TURN_ID
+                "getNavigationTurnId" -> guidance?.let { GeelyTurnId.forManeuver(it.icon, it.roundaboutExit) } ?: GeelyTurnId.UNKNOWN
                 "getDistanceToNextGuidancePoint" -> guidance?.distanceMeters ?: 0
                 "getDistanceToDestination" -> guidance?.remainingMeters ?: 0
                 "getETA" -> guidance?.remainingSeconds ?: 0
@@ -172,7 +162,7 @@ object GeelyDimNavi {
                 "getDayNightMode" -> 0
                 "getExtensionInfo" -> Bundle()
                 "toString" -> "GeelyDimNavi"
-                "hashCode" -> TURN_ID
+                "hashCode" -> GeelyTurnId.UNKNOWN
                 "equals" -> proxy === args?.firstOrNull()
                 else -> defaultValue(method.returnType)
             }

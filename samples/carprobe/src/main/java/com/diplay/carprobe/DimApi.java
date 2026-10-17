@@ -224,4 +224,56 @@ final class DimApi {
             return null;
         }
     }
+
+    /**
+     * Pushes one cluster turn id for a few seconds, so the car's own id vocabulary can be read off
+     * the cluster: run `dimturn 2`, `dimturn 3`, ... and note which arrow appears.
+     */
+    static void pushTurn(Context context, int turnId) {
+        if (!SUPPORTED_DEVICE.equals(android.os.Build.DEVICE)) {
+            ProbeLog.i("gated: Build.DEVICE=" + android.os.Build.DEVICE + " != " + SUPPORTED_DEVICE);
+            return;
+        }
+        new Thread(() -> {
+            try {
+                ProbeLog.i("=== dimturn " + turnId + " (5 s) ===");
+                Object dim = null;
+                Class<?> dimClass = WifiApi.load(CLS_DIM);
+                if (dimClass == null) {
+                    ProbeLog.i("DimInteraction unreachable");
+                    return;
+                }
+                for (Method method : dimClass.getMethods()) {
+                    if (Modifier.isStatic(method.getModifiers()) && method.getName().equals("create")) {
+                        Object result = method.invoke(null, context);
+                        if (result != null) {
+                            dim = result;
+                            break;
+                        }
+                    }
+                }
+                if (dim == null) {
+                    ProbeLog.i("DimInteraction.create returned null");
+                    return;
+                }
+                Object navi = invoke(dim, "getNaviInteraction");
+                if (navi == null) {
+                    ProbeLog.i("getNaviInteraction() returned null");
+                    return;
+                }
+                call(navi, "notifyNavigationStatus", 2);
+                for (int i = 0; i < 5; i++) {
+                    ProbeLog.i("dimturn " + turnId + " push " + i + " -> "
+                            + call(navi, "updateTurnByTurnArrow", turnId));
+                    call(navi, "updateDistanceToNextGuidancePoint", 450);
+                    call(navi, "updateNextGuidancePointName", "TURN " + turnId);
+                    Thread.sleep(1000);
+                }
+                call(navi, "notifyTurnByTurnStopped");
+                ProbeLog.i("=== dimturn " + turnId + " done ===");
+            } catch (Throwable error) {
+                ProbeLog.e("dimturn failed", error);
+            }
+        }, "carprobe-dimturn").start();
+    }
 }

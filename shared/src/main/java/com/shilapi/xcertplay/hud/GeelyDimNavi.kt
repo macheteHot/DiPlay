@@ -46,6 +46,7 @@ object GeelyDimNavi {
     private var navi: Any? = null
     private var info: Any? = null
     private var laneClass: Class<*>? = null
+    private var lastLaneLogMillis = 0L
     private var tick: ScheduledFuture<*>? = null
 
     @Volatile private var latest: ClusterTurnGuidance? = null
@@ -186,6 +187,13 @@ object GeelyDimNavi {
         val current = lanes
         if (current.isEmpty()) return
         val type = laneClass ?: return
+        val now = android.os.SystemClock.uptimeMillis()
+        if (now - lastLaneLogMillis >= 2_000) {
+            lastLaneLogMillis = now
+            Log.i(TAG, "lanes " + current.joinToString(" | ") {
+                "i=${it.index} st=${it.status} a=${it.angle} h=${it.highlightAngle} id=${GeelyLaneIcon.forLane(it)}"
+            })
+        }
         val array = java.lang.reflect.Array.newInstance(type, current.size)
         current.forEachIndexed { position, lane ->
             val icon = GeelyLaneIcon.forLane(lane)

@@ -53,10 +53,10 @@ internal object LauncherBubble {
     private const val KEY_Y = "y"
     private const val KEY_LOCKED = "locked"
 
-    /** The icon the launcher shows for this app, so the bubble matches the desktop shortcut. */
+    /** The launcher tile's own icon, so the bubble and the desktop shortcut match. */
     private fun appIcon(context: Context): Drawable? = runCatching {
         context.packageManager.getApplicationIcon(context.packageName)
-    }.getOrNull() ?: ContextCompat.getDrawable(context, R.drawable.ic_carplay)
+    }.getOrNull() ?: ContextCompat.getDrawable(context, R.drawable.ic_carplay_launcher)
 
     private val main = Handler(Looper.getMainLooper())
     private var appContext: Context? = null

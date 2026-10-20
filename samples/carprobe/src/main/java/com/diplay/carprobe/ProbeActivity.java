@@ -725,7 +725,7 @@ public final class ProbeActivity extends Activity {
             switch (p[0]) {
                 case "help":
                     ProbeLog.i("commands: dim <0-3> | ar <0|1> | switchar <0|1> | guide | subscribe <0|1> "
-                            + "| inspect | cycle | hudapi | hudimpl | ambli | ambmusic | ambrestore | ambprobe | ambmarquee | ambsteady | ambwheel | ambspectrum | ambvisualizer | ambforcemusic | wifi | wifibringup | wifiset [on|off] | usbhal | dimapi | dimnav | dimturn <id> | dimlane <iconId> [count] | naviserv [1] | service <type> | permservice <type> "
+                            + "| inspect | cycle | hudapi | hudimpl | ambli | ambmusic | ambrestore | ambprobe | ambmarquee | ambsteady | ambperf [samples] | ambfast [hz] [s] | ambflash [hz] [s] | btaudio | mic [s] | ambwheel | ambspectrum | ambvisualizer | ambforcemusic | wifi | wifibringup | wifiset [on|off] | usbhal | usbscan [seconds] | usbscanstop | dimapi | dimnav | dimturn <id> | dimlane <iconId> [count] | naviserv [1] | service <type> | permservice <type> "
                             + "| simnavi | stopnavi | dimnavi <start|tick|stop> | dimproj <0|1> "
                             + "| navistart [naviType] | route [action] [lat] [lng] [name] "
                             + "| hold <turn> <dist> | unhold | binddim "
@@ -848,6 +848,35 @@ public final class ProbeActivity extends Activity {
                 case "ambsteady":
                     AmbientApi.steadyColor(this);
                     break;
+                case "ambperf":
+                    // Probe: how long one ZoneAll write takes, and what frame rate that allows.
+                    AmbientApi.perf(this, p.length > 1 ? Integer.parseInt(p[1]) : 200);
+                    break;
+                case "ambspecset":
+                    // Probe: enable the head unit's own spectrum stream, then subscribe to it.
+                    AmbientApi.enableSpectrum(this, p.length > 1 ? Integer.parseInt(p[1]) : 1);
+                    break;
+                case "mic":
+                    // Probe: microphone spectrum, the last option for music-reactive lamps here.
+                    MicApi.start(this, p.length > 1 ? Integer.parseInt(p[1]) : 15,
+                            p.length > 2 ? Integer.parseInt(p[2]) : 0);
+                    break;
+                case "ambflash":
+                    // Probe: red/blue alternation at a chosen rate, to judge the visible smoothness.
+                    AmbientApi.flash(this,
+                            p.length > 1 ? Integer.parseInt(p[1]) : 25,
+                            p.length > 2 ? Integer.parseInt(p[2]) : 10);
+                    break;
+                case "btaudio":
+                    // Probe: what audio routes exist, and whether the Bluetooth stream is readable.
+                    AudioApi.dump(this);
+                    break;
+                case "ambfast":
+                    // Probe: sweep the lamp at a chosen frame rate to find its visible refresh limit.
+                    AmbientApi.fast(this,
+                            p.length > 1 ? Integer.parseInt(p[1]) : 40,
+                            p.length > 2 ? Integer.parseInt(p[2]) : 8);
+                    break;
                 case "ambwheel":
                     AmbientApi.startColorWheel(this);
                     break;
@@ -882,6 +911,13 @@ public final class ProbeActivity extends Activity {
                     break;
                 case "usbhal":
                     UsbApi.dump(this);
+                    break;
+                case "usbscan":
+                    // #3: poll what the host view sees while the port is switched to host eye diagram.
+                    UsbApi.scan(this, p.length > 1 ? Integer.parseInt(p[1]) : 300);
+                    break;
+                case "usbscanstop":
+                    UsbApi.stopScan();
                     break;
                 case "wifiset":
                     // #2: ExternalWifiManager.setWifiEnabled on|off (off when the argument is missing)

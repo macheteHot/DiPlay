@@ -102,6 +102,13 @@ final class AmbientApi {
     private static int maxIntensity = 255;
     private static boolean steadyRequested;
     private static boolean colorWheelRequested;
+    private static boolean perfRequested;
+    private static int perfSamples = 200;
+    private static boolean fastRequested;
+    private static int fastHz = 40;
+    private static int fastSeconds = 8;
+    /** 0 = hue sweep, 1 = red/blue flash (easier to judge by eye). */
+    private static int fastMode = 0;
 
     private static final int[] zoneColor = new int[6];
     private static final int[] zoneIntensity = new int[6];
@@ -117,9 +124,242 @@ final class AmbientApi {
     private static final int BASELINE_ALL_COLOR = 16742655;
     private static final int BASELINE_ALL_INTENSITY = 20;
 
-    /** Sets one steady red across all zones through the ZoneAll property, then leaves it for viewing. */
-    static void steadyColor(Context context) {
+    /** Measures how long one ZoneAll write takes, and what frame rate that allows. */
+    static void perf(Context context, int samples) {
         if (!supported()) {
+            ProbeLog.i("gated: Build.DEVICE=" + Build.DEVICE + " != " + SUPPORTED_DEVICE
+                    + "; refusing to touch ambient lighting");
+            return;
+        }
+        perfSamples = Math.max(20, Math.min(1000, samples));
+        ProbeLog.i("=== ambient write latency (gated to " + SUPPORTED_DEVICE
+                + ") samples=" + perfSamples + " ===");
+        perfRequested = true;
+        readAll(context);
+    }
+
+    /**
+     * Times {@code CB_ZoneAll*} writes one by one, then a colour+intensity pair (one animation
+     * frame), then a one-second burst. The pair latency is what sets the achievable frame rate:
+     * the client schedules the next frame only after the previous write returned.
+     */
+    private static void measureWriteLatency(Object manager, int samples) {
+        int baseIntensity = dataValueInt(invokeNoArg(manager, "getPA_ZoneAllIntensitySettings"));
+        int baseColor = dataValueInt(invokeNoArg(manager, "getPA_ZoneAllColorSettings"));
+        ProbeLog.i("baseline intensity=" + baseIntensity + " color=" + baseColor);
+
+        for (int i = 0; i < 5; i++) {
+            quietInt(manager, "CB_ZoneAllIntensitySettings", 20 + i);
+        }
+
+        long[] intensity = new long[samples];
+        for (int i = 0; i < samples; i++) {
+            long start = System.nanoTime();
+            quietInt(manager, "CB_ZoneAllIntensitySettings", 20 + (i % 100));
+            intensity[i] = System.nanoTime() - start;
+        }
+        reportLatency("intensity", intensity);
+
+        long[] color = new long[samples];
+        for (int i = 0; i < samples; i++) {
+            long start = System.nanoTime();
+            quietInt(manager, "CB_ZoneAllColorSettings", 0x100000 + (i % 200) * 0x101);
+            color[i] = System.nanoTime() - start;
+        }
+        reportLatency("color", color);
+
+        long[] frame = new long[samples];
+        for (int i = 0; i < samples; i++) {
+            long start = System.nanoTime();
+            quietInt(manager, "CB_ZoneAllColorSettings", 0x200000 + (i % 200) * 0x101);
+            quietInt(manager, "CB_ZoneAllIntensitySettings", 30 + (i % 80));
+            frame[i] = System.nanoTime() - start;
+        }
+        reportLatency("frame(color+intensity)", frame);
+
+        long start = System.nanoTime();
+        int frames = 0;
+        while (System.nanoTime() - start < 1_000_000_000L) {
+            quietInt(manager, "CB_ZoneAllColorSettings", 0x300000 + (frames % 200) * 0x101);
+            quietInt(manager, "CB_ZoneAllIntensitySettings", 40 + (frames % 60));
+            frames++;
+        }
+        ProbeLog.i("sustained writes in 1 s: frames=" + frames
+                + " (" + frames + " fps ceiling, no scheduling)");
+
+        quietInt(manager, "CB_ZoneAllColorSettings", baseColor != 0 ? baseColor : BASELINE_ALL_COLOR);
+        quietInt(manager, "CB_ZoneAllIntensitySettings",
+                baseIntensity > 0 ? baseIntensity : BASELINE_ALL_INTENSITY);
+        ProbeLog.i("=== ambient write latency done; baseline restored ===");
+    }
+
+    private static void reportLatency(String label, long[] samples) {
+        long[] sorted = samples.clone();
+        java.util.Arrays.sort(sorted);
+        long min = sorted[0];
+        long p50 = sorted[sorted.length / 2];
+        long p95 = sorted[Math.min(sorted.length - 1, (int) (sorted.length * 0.95))];
+        long max = sorted[sorted.length - 1];
+        ProbeLog.i("write " + label + " n=" + sorted.length
+                + " min=" + ms(min) + " p50=" + ms(p50) + " p95=" + ms(p95) + " max=" + ms(max)
+                + " -> p95 allows " + (p95 > 0 ? (1000f / (p95 / 1_000_000f)) : Float.POSITIVE_INFINITY) + " fps");
+    }
+
+    private static String ms(long nanos) {
+        return String.format(java.util.Locale.US, "%.2fms", nanos / 1_000_000f);
+    }
+
+    /** Same call as [invokeInt] without the per-call log line, for timing loops. */
+    private static void quietInt(Object target, String methodName, int value) {
+        Method method = findMethod(target.getClass(), methodName, 1);
+        if (method == null) {
+            return;
+        }
+        try {
+            method.invoke(target, value);
+        } catch (Throwable ignored) {
+            // A refusing lamp service shows up as a flat zero-latency loop; the caller restores.
+        }
+    }
+
+    /** Sweeps the hue at a chosen frame rate, so the lamp's real refresh limit can be judged. */
+    static void fast(Context context, int hz, int seconds) {
+        if (!supported()) {
+            ProbeLog.i("gated: Build.DEVICE=" + Build.DEVICE + " != " + SUPPORTED_DEVICE
+                    + "; refusing to touch ambient lighting");
+            return;
+        }
+        fastHz = Math.max(5, Math.min(120, hz));
+        fastSeconds = Math.max(2, Math.min(60, seconds));
+        fastMode = 0;
+        ProbeLog.i("=== ambient fast sweep " + fastHz + " Hz for " + fastSeconds + " s ===");
+        fastRequested = true;
+        readAll(context);
+    }
+
+    /** Alternates red and blue at the chosen rate, which is far easier to judge than a hue sweep. */
+    static void flash(Context context, int hz, int seconds) {
+        if (!supported()) {
+            ProbeLog.i("gated: Build.DEVICE=" + Build.DEVICE + " != " + SUPPORTED_DEVICE
+                    + "; refusing to touch ambient lighting");
+            return;
+        }
+        fastHz = Math.max(1, Math.min(120, hz));
+        fastSeconds = Math.max(2, Math.min(60, seconds));
+        fastMode = 1;
+        ProbeLog.i("=== ambient red/blue flash " + fastHz + " Hz for " + fastSeconds + " s ===");
+        fastRequested = true;
+        readAll(context);
+    }
+
+    /**
+     * Writes colour+intensity frames at a fixed rate on its own thread, measuring the achieved rate
+     * so the visible limit can be separated from the requested one.
+     */
+    private static void fastSweep(Object manager, int hz, int seconds) {
+        int baseColor = dataValueInt(invokeNoArg(manager, "getPA_ZoneAllColorSettings"));
+        int baseIntensity = dataValueInt(invokeNoArg(manager, "getPA_ZoneAllIntensitySettings"));
+        new Thread(() -> {
+            long frameNanos = 1_000_000_000L / hz;
+            long end = System.nanoTime() + seconds * 1_000_000_000L;
+            long start = System.nanoTime();
+            int frames = 0;
+            try {
+                while (System.nanoTime() < end) {
+                    long frameStart = System.nanoTime();
+                    float progress = (frameStart - start) / (float) (seconds * 1_000_000_000L);
+                    if (fastMode == 1) {
+                        quietInt(manager, "CB_ZoneAllColorSettings",
+                                (frames % 2 == 0) ? 0xFF0000 : 0x0000FF);
+                        quietInt(manager, "CB_ZoneAllIntensitySettings", 200);
+                    } else {
+                        int color = hsvToRgb((progress * 360f) % 360f, 1f, 1f);
+                        quietInt(manager, "CB_ZoneAllColorSettings", color);
+                        quietInt(manager, "CB_ZoneAllIntensitySettings",
+                                (int) (60 + 150 * (0.5 + 0.5 * Math.sin(progress * 2 * Math.PI * 4))));
+                    }
+                    frames++;
+                    long wait = frameNanos - (System.nanoTime() - frameStart);
+                    if (wait > 0) {
+                        Thread.sleep(wait / 1_000_000L, (int) (wait % 1_000_000L));
+                    }
+                }
+            } catch (Throwable error) {
+                ProbeLog.i("ambfast stopped: " + ProbeLog.describe(HudApi.unwrap(error)));
+            }
+            quietInt(manager, "CB_ZoneAllColorSettings", baseColor != 0 ? baseColor : BASELINE_ALL_COLOR);
+            quietInt(manager, "CB_ZoneAllIntensitySettings",
+                    baseIntensity > 0 ? baseIntensity : BASELINE_ALL_INTENSITY);
+            long elapsedNanos = System.nanoTime() - start;
+            float achieved = frames * 1_000_000_000f / Math.max(1L, elapsedNanos);
+            ProbeLog.i("ambfast done mode=" + (fastMode == 1 ? "flash" : "hue")
+                    + " requested=" + hz + "fps frames=" + frames
+                    + " achieved=" + String.format(java.util.Locale.US, "%.1f", achieved) + "fps");
+        }, "carprobe-ambfast").start();
+    }
+
+    private static int hsvToRgb(float hue, float saturation, float value) {
+        float h = (hue % 360f) / 60f;
+        int sector = (int) Math.floor(h);
+        float f = h - sector;
+        int v = (int) (value * 255);
+        int p = (int) (value * (1 - saturation) * 255);
+        int q = (int) (value * (1 - saturation * f) * 255);
+        int t = (int) (value * (1 - saturation * (1 - f)) * 255);
+        switch (sector % 6) {
+            case 0:
+                return (v << 16) | (t << 8) | p;
+            case 1:
+                return (q << 16) | (v << 8) | p;
+            case 2:
+                return (p << 16) | (v << 8) | t;
+            case 3:
+                return (p << 16) | (q << 8) | v;
+            case 4:
+                return (t << 16) | (p << 8) | v;
+            default:
+                return (v << 16) | (p << 8) | q;
+        }
+    }
+
+    /** Enables the head unit's spectrum stream: setSpectrumMode(1), then read it back and subscribe. */
+    static void enableSpectrum(Context context, int mode) {
+        if (!supported()) {
+            ProbeLog.i("gated: Build.DEVICE=" + Build.DEVICE + " != " + SUPPORTED_DEVICE
+                    + "; refusing to touch audio extensions");
+            return;
+        }
+        ProbeLog.i("=== spectrum enable probe mode=" + mode + " ===");
+        Intent intent = new Intent(ACTION_AUDIO_EXT_CONTROL).setPackage(PKG_AUDIO_EXT);
+        try {
+            context.getApplicationContext().bindService(intent, new ServiceConnection() {
+                @Override
+                public void onServiceConnected(ComponentName name, IBinder service) {
+                    ProbeLog.i("AudioExtControlService connected: " + service);
+                    // Transaction 8 is setSpectrumMode: the AIDL declares it right after
+                    // getSpectrumMode (7). Read it back with 7 to prove the write landed.
+                    Ipc.probe("IAudioExtControl.setSpectrumMode(" + mode + ")",
+                            service, CLS_AUDIO_EXT_CONTROL, 8, data -> data.writeInt(mode), Ipc.INT);
+                    Ipc.probe("IAudioExtControl.getSpectrumMode(" + mode + ") after set",
+                            service, CLS_AUDIO_EXT_CONTROL, IAC_GET_SPECTRUM_MODE,
+                            data -> data.writeInt(mode), Ipc.INT);
+                    Ipc.probe("IAudioExtControl.registerDataCallback(cb)",
+                            service, CLS_AUDIO_EXT_CONTROL, IAC_REGISTER_DATA_CALLBACK,
+                            data -> data.writeStrongBinder(visualizerCallback), Ipc.VOID);
+                }
+
+                @Override
+                public void onServiceDisconnected(ComponentName name) {
+                    ProbeLog.i("AudioExtControlService disconnected: " + name.flattenToShortString());
+                }
+            }, Context.BIND_AUTO_CREATE);
+        } catch (Throwable error) {
+            ProbeLog.e("bindService(AudioExtControlService)", error);
+        }
+    }
+
+    /** Sets one steady red across all zones through the ZoneAll property, then leaves it for viewing. */
+    static void steadyColor(Context context) {        if (!supported()) {
             ProbeLog.i("gated: Build.DEVICE=" + Build.DEVICE + " != " + SUPPORTED_DEVICE
                     + "; refusing to touch ambient lighting");
             return;
@@ -399,6 +639,14 @@ final class AmbientApi {
             }
             if (colorWheelRequested) {
                 colorWheel(ambli);
+            }
+            if (perfRequested) {
+                perfRequested = false;
+                measureWriteLatency(ambli, perfSamples);
+            }
+            if (fastRequested) {
+                fastRequested = false;
+                fastSweep(ambli, fastHz, fastSeconds);
             }
         }
         Object vfhud = invokeNoArg(setManager, "getECarXCarVfhudManager");

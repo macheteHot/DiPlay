@@ -2,18 +2,25 @@ package com.shilapi.xcertplay.network
 
 import com.shilapi.xcertplay.orchestration.WirelessHotspotMode
 import org.junit.Assert.assertEquals
-import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
 
 class GeelyWirelessLinkPolicyTest {
 
-    /** The Geely/Lynk unit can only run Wi-Fi Direct: its hotspot and USB link were measured dead. */
+    /** The Geely/Lynk unit can only run Wi-Fi Direct: its hotspot link was measured dead. */
     @Test
     fun theGeelyHeadUnitStartsOnWifiDirectAndHidesTheLinksItCannotRun() {
         assertEquals(WirelessHotspotMode.WIFI_P2P, GeelyWirelessLinkPolicy.defaultMode(detected = true))
         assertEquals(setOf(WirelessHotspotMode.MANUAL), GeelyWirelessLinkPolicy.disabledModes(detected = true))
-        assertFalse(GeelyWirelessLinkPolicy.wiredCarPlayAvailable(detected = true))
+    }
+
+    /**
+     * Wired CarPlay stays offered on the Geely unit: the port can be flipped to host from the
+     * engineering mode USB2.0 page and the iPhone then enumerates (measured 2026-10-21).
+     */
+    @Test
+    fun wiredCarPlayStaysOfferedOnTheGeelyHeadUnit() {
+        assertTrue(GeelyWirelessLinkPolicy.wiredCarPlayAvailable(detected = true))
     }
 
     /** Every other head unit keeps the stock default and every option enabled. */

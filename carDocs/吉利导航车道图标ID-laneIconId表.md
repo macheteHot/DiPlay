@@ -243,9 +243,34 @@ laneNumber=2, laneBackIconId=15   // 直行
 3. `laneBackIcon` 在原厂链路里恒为 `null`，仪表只按 `laneBackIconId` 取图标；自带位图覆盖这条路本车没有启用。
 4. `laneIconId` 是**图标 ID**，不是车道序号；`LaneId` 才是 `trafficLaneNo`。
 
+## 实测记录（2026-10-21，compound 组）
+
+用 `samples/carprobe` 的 `dimlane` 探针（走真实 `DimInteraction` → `updateLaneInfo`）在
+`CS11_A4` 上逐个推送，仪表实际画出来的图形与上表一致：
+
+| `laneIconId` | 上表枚举 | 仪表画面 | 结果 |
+| --- | --- | --- | --- |
+| 6 | `LaneActionLeftRight` | 左右转 | ✅ |
+| 7 | `LaneActionAheadLeftRight` | 直/左/右 | ✅ |
+| 9 | `LaneActionAheadLUTurn` | 直行 + 左掉头 | ✅ |
+| 10 | `LaneActionAheadRUTurn` | 直行 + 右掉头 | ✅ |
+| 11 | `LaneActionLeftLUTurn` | 左转 + 左掉头 | ✅ |
+| 12 | `LaneActionRightRUTurn` | 右转 + 右掉头 | ✅ |
+| 21 | `6 + 15` | 与 6 同形、仅变亮 | ✅ 高亮组可用 |
+
+做法（每 6 秒重推一次，仪表上基本常亮）：
+
+```sh
+D=/sdcard/Android/data/com.diplay.carprobe/files/carprobe.cmd
+adb shell "echo 'dimlane 6 1' > $D"     # 换 6 / 7 / 9 / 10 / 11 / 12 / 21
+```
+
+因此 `GeelyLaneIcon` 里复合角度用到的这六个 id、以及「推荐车道 = 朴素 id + 15」这一约定，
+都有实车画面支持，不再是纯静态推导。
+
 ## 残余未知
 
-- **未逐值实车验证**：0~62、71~83、95 的编号来自原厂代码，仪表/HUD ECU（QNX 侧）的具体图形没有在本工程内反编译。
+- **未逐值实车验证**：上表只覆盖了 compound 组（6/7/9/10/11/12/21）；0~62 其余值、71~83、95 的编号来自原厂代码，仪表/HUD ECU（QNX 侧）的具体图形没有在本工程内反编译。
 - **`front=255` / `front=-1` 的中文名**是按 `getLaneInfo` 的分支和 `LaneKey` 反推的；原厂在导航态/巡航态使用不同的平行编号，第三方直传对应值即可。
 - **96** 是 `LaneIconMapping` 为输入 86 保留的目标值，本版地图的静态表不产生 86；96 的具体图形语义未确认。
 - 车道箭头与转向箭头是两套独立编号：转向用 `100~148`，车道用 `0~62 / 71~83 / 95`，不要混用。

@@ -58,7 +58,10 @@ This car has a **single Wi-Fi chip**, and the **car hotspot and the Wi-Fi client
 **Do this:**
 
 1. On the head unit, **Settings → System → Connectivity → turn OFF the "car hotspot"**.
-2. Then turn Wi-Fi on once (or run the command):
+2. **Turn the system Wi-Fi switch ON in Settings → Wi-Fi.** The radio is not enough: with the switch
+   off, the iPhone joins the group but never opens the AirPlay TCP, whichever phone you use
+   (measured 2026-10-21, see below).
+3. Then turn Wi-Fi on once (or run the command):
 
 ```bash
 adb shell cmd wifi set-wifi-enabled enabled
@@ -67,6 +70,23 @@ adb shell settings get global wifi_on      # expect 1
 
 - Once the car hotspot stays off, the **Wi-Fi state survives reboots**; no adb needed afterwards.
 - While debugging over the PC, do not keep the head unit connected to another Wi-Fi AP (it occupies the P2P radio).
+- `settings get global wifi_on` reading `1` does **not** prove the system switch is on. Always check
+  the Settings → Wi-Fi toggle on the head unit itself before blaming the phone.
+
+**Measured 2026-10-21 (wireless CarPlay failed with two phones until the switch was on)**
+
+With the Wi-Fi switch off, iPhone XR and iPhone Air behaved identically:
+
+| Step | Result |
+| --- | --- |
+| Wi-Fi P2P group | created every attempt (5 GHz ch149, `host=192.168.x.x`) |
+| iPhone joins the group | yes, `ip neigh` showed it `REACHABLE` (iOS hides `DIRECT-*` from its Wi-Fi list) |
+| Bluetooth iAP2 | connected, `0x4158` / `0xae01` received |
+| AirPlay TCP 7000 | never dialled: `first TCP timeout` after `FIRST_TCP_MILLIS = 30000` |
+| mDNS | `bonjourAdded=0 bonjourResolved=0` |
+
+The retry loop stops after `MAX_STARTUP_RETRIES = 5` and the screen stays on "connecting iPhone",
+so a stuck screen usually means the attempts are already spent — restart DiPlay after fixing the switch.
 
 **See**: `车机兼容记录.md` section 7.
 

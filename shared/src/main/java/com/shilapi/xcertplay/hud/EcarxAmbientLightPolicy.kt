@@ -122,11 +122,14 @@ internal object EcarxAmbientLightPolicy {
         (from + (to - from) * fraction.coerceIn(0.0, 1.0)).roundToInt()
 
     /**
-     * Animation frames per second budget: the zone lamps sit on the vehicle bus, not a display. At
-     * 25 Hz a breath moves in small enough increments to read as a glide; this one value sets both
-     * how smooth the motion looks and how much traffic the lamp service sees.
+     * Animation frames per second budget: the zone lamps sit on the vehicle bus, not a display.
+     * Measured with the carprobe timing probe on the gated unit (2026-10-21): one
+     * {@code color+intensity} frame costs p50 3.7 ms / p95 11.7 ms and a tight loop sustains
+     * 237 writes per second, so 25 ms (40 fps) keeps the write well under a third of the budget
+     * while staying far below what the lamp service can absorb. The previous 40 ms value left the
+     * motion visibly stepped at ~22 fps once the write time was added in.
      */
-    const val ANIMATION_FRAME_MILLIS = 40L
+    const val ANIMATION_FRAME_MILLIS = 25L
 
     /** How long a colour takes to glide to a new one, so a beat does not snap the strip. */
     const val COLOR_GLIDE_MILLIS = 220L

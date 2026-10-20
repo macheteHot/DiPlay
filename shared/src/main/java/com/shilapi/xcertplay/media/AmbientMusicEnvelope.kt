@@ -4,17 +4,38 @@ import kotlin.math.sqrt
 
 /** Stores levels, never PCM. Frame intervals follow successful AudioTrack writes. */
 internal class AmbientMusicEnvelope {
-    private data class Segment(val start: Long, val end: Long, val rms: Double, val bassRms: Double)
-    data class Energy(val rms: Double, val bassRms: Double)
+    private data class Segment(
+        val start: Long,
+        val end: Long,
+        val rms: Double,
+        val bassRms: Double,
+        val bands: DoubleArray,
+    )
+
+    /** One played window: loudness, bass and the five-band spectrum (see [AmbientMusicSpectrum]). */
+    data class Energy(
+        val rms: Double,
+        val bassRms: Double,
+        val bands: DoubleArray = DoubleArray(AmbientMusicSpectrum.BAND_COUNT),
+    )
     private val segments = ArrayDeque<Segment>()
     private var headEpoch = 0L
     private var previousHead = 0L
     private var playedPeak = 0.0
     private var playedBassPeak = 0.0
+    private var playedBands: DoubleArray? = null
 
-    @Synchronized fun append(start: Long, frames: Long, rms: Double, bassRms: Double = 0.0) {
+    @Synchronized fun append(
+        start: Long,
+        frames: Long,
+        rms: Double,
+        bassRms: Double = 0.0,
+        bands: DoubleArray = DoubleArray(AmbientMusicSpectrum.BAND_COUNT),
+    ) {
         if (frames <= 0 || !rms.isFinite()) return
-        segments.addLast(Segment(start, start + frames, rms.coerceIn(0.0, 1.0), if (bassRms.isFinite()) bassRms.coerceIn(0.0, 1.0) else 0.0))
+        segments.addLast(Segment(start, start + frames, rms.coerceIn(0.0, 1.0),
+            if (bassRms.isFinite()) bassRms.coerceIn(0.0, 1.0) else 0.0,
+            bands.copyOf()))
         while (segments.size > 512) segments.removeFirst()
     }
 
@@ -27,6 +48,7 @@ internal class AmbientMusicEnvelope {
             val played = segments.removeFirst()
             playedPeak = maxOf(playedPeak, played.rms)
             playedBassPeak = maxOf(playedBassPeak, played.bassRms)
+            playedBands = AmbientMusicSpectrum.strong(playedBands, played.bands)
         }
         val segment = segments.firstOrNull()
         return if (playing && segment != null && position >= segment.start) segment.rms else 0.0
@@ -38,8 +60,14 @@ internal class AmbientMusicEnvelope {
         val currentBass = segments.firstOrNull()?.takeIf { headEpoch + previousHead >= it.start }?.bassRms ?: 0.0
         val peak = playedPeak
         val bassPeak = playedBassPeak
-        playedPeak = 0.0; playedBassPeak = 0.0
-        return if (playing) Energy(maxOf(current, peak), maxOf(currentBass, bassPeak)) else Energy(0.0, 0.0)
+        val bands = playedBands ?: segments.firstOrNull()?.bands
+        playedPeak = 0.0; playedBassPeak = 0.0; playedBands = null
+        return if (playing) {
+            Energy(maxOf(current, peak), maxOf(currentBass, bassPeak),
+                bands ?: DoubleArray(AmbientMusicSpectrum.BAND_COUNT))
+        } else {
+            Energy(0.0, 0.0)
+        }
     }
     fun playedWindowRms(rawPlaybackHead: Int, playing: Boolean): Double = playedWindow(rawPlaybackHead, playing).rms
 

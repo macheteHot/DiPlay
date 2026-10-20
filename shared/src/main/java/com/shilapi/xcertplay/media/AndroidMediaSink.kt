@@ -2425,7 +2425,8 @@ private class AudioRenderer(
             if (ambientMedia && AmbientMusicController.wantsPcm(ambientRendererToken)) {
                 ambientEnvelope.append(totalWrittenFrames, framesWritten.toLong(),
                     AmbientMusicEnvelope.pcmRms(data, offset + written, count),
-                    ambientBass.rms(data, offset + written, count))
+                    ambientBass.rms(data, offset + written, count),
+                    AmbientMusicSpectrum.pcmBands(data, offset + written, count))
             }
             written += count
             totalWrittenFrames += framesWritten

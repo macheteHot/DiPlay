@@ -29,8 +29,8 @@ import com.shilapi.xcertplay.host.R
 import kotlin.math.roundToInt
 
 /**
- * The app logo as a bubble over the launcher's home screen: a tap comes back to CarPlay, a drag
- * moves it. Holding it sweeps a light across the logo and locks the place; holding it again
+ * The app icon as a bubble over the launcher's home screen: a tap comes back to CarPlay, a drag
+ * moves it. Holding it sweeps a light across the icon and locks the place; holding it again
  * unlocks. A locked bubble wears a small padlock badge in its top-right corner, and the hold shows
  * a prompt above the bubble.
  *
@@ -53,9 +53,10 @@ internal object LauncherBubble {
     private const val KEY_Y = "y"
     private const val KEY_LOCKED = "locked"
 
-    /** The app logo the launcher shows for this app. */
-    private fun appLogo(context: Context): Drawable? =
-        ContextCompat.getDrawable(context, R.drawable.ic_carplay_launcher)
+    /** The icon the launcher shows for this app, so the bubble matches the desktop shortcut. */
+    private fun appIcon(context: Context): Drawable? = runCatching {
+        context.packageManager.getApplicationIcon(context.packageName)
+    }.getOrNull() ?: ContextCompat.getDrawable(context, R.drawable.ic_carplay)
 
     private val main = Handler(Looper.getMainLooper())
     private var appContext: Context? = null
@@ -95,11 +96,11 @@ internal object LauncherBubble {
         val metrics = context.resources.displayMetrics
         val density = metrics.density
         val sizePercent = AirPlayPersistence.loadLauncherBubbleSize(context)
-        val logo = appLogo(context)
-        val logoRatio = logo?.takeIf { it.intrinsicHeight > 0 }
+        val icon = appIcon(context)
+        val iconRatio = icon?.takeIf { it.intrinsicHeight > 0 }
             ?.let { it.intrinsicWidth.toFloat() / it.intrinsicHeight }
             ?: LauncherBubbleLayout.DEFAULT_ICON_RATIO
-        val initial = LauncherBubbleLayout.initialBox(metrics.widthPixels, metrics.heightPixels, sizePercent, logoRatio, density)
+        val initial = LauncherBubbleLayout.initialBox(metrics.widthPixels, metrics.heightPixels, sizePercent, iconRatio, density)
         val width = initial.width
         val height = initial.height
         val gap = (LABEL_GAP_DP * density).roundToInt()
@@ -108,7 +109,7 @@ internal object LauncherBubble {
         val unlockPrompt = context.getString(R.string.settings_launcher_bubble_hold_to_unlock)
 
         var locked = prefs.getBoolean(KEY_LOCKED, false)
-        val bubble = BubbleView(context, logo, height)
+        val bubble = BubbleView(context, icon, height)
         bubble.locked = locked
 
         val params = windowParams(width, height)
@@ -296,10 +297,10 @@ internal object LauncherBubble {
             .onFailure { Log.w(TAG, "bubble open failed", it) }
     }
 
-    /** The logo, a left-to-right light sweep while holding, and a padlock badge once locked. */
+    /** The icon, a left-to-right light sweep while holding, and a padlock badge once locked. */
     private class BubbleView(
         context: Context,
-        private val logo: Drawable?,
+        private val icon: Drawable?,
         private val bubbleHeight: Int,
     ) : View(context) {
         private val sweep = Paint(Paint.ANTI_ALIAS_FLAG)
@@ -326,8 +327,8 @@ internal object LauncherBubble {
 
         override fun onDraw(canvas: Canvas) {
             val radius = bubbleHeight * CORNER_SHARE
-            logo?.setBounds(0, 0, width, height)
-            logo?.draw(canvas)
+            icon?.setBounds(0, 0, width, height)
+            icon?.draw(canvas)
             if (progress > 0f) {
                 if (sweep.shader == null) {
                     sweep.shader = LinearGradient(
